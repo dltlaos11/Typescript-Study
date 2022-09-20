@@ -1,0 +1,23 @@
+{
+  "name": "typescript-study",
+  "version": "1.0.0",
+  "description": "- ts를 써야하는 이유는 안정성이 늘어난다.\r   안정성이 늘어나면 -> 에러가 줄어든다.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dltlaos11/Typescript-Study.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dltlaos11/Typescript-Study/issues"
+  },
+  "homepage": "https://github.com/dltlaos11/Typescript-Study#readme",
+  "dependencies": {
+    "typescript": "^4.8.3"
+  }
+}
