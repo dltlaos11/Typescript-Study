@@ -1,6 +1,11 @@
-const a:string = "5";
+const a = [123, 456, "hello", "wow"];
 a = 1234;
 
+const head = document.querySelector('#head');
+if (head) {
+    head.inneRHTML = 'heelo wd';
+  console.log(head);
+}
 /*
 에디터가 자동으로 타입검사를 해준다. ctrl+`: 터미널 열기
 tsc --noEmit하면 처음에는 터미널이 알아듣지 못한다. 이떄 node를 사용🟢 tsc컴파일러를 설치해야 된다.

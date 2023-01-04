@@ -110,4 +110,24 @@ function add(x, y) {
   return x+y;
 }// 선언
 ```
-### never 타입과 느낌표(non-null assertion)
+### never 타입과 느낌표❗(non-null assertion)
+- 빈 배열은 never 타입  
+- Element라는 type이 존재
+- ```|``` "또는" 의미
+```javascript
+try {
+  const array = []; // noImplicitAny가 false일 때
+  array[0];
+} catch(error) {
+  error;
+}
+❗ 🤔
+! 는 웬만하면 안쓰는 것이 좋다
+const head = document.querySelector('#head'); // const head: Element | null
+const head = document.querySelector('#head')!; // null이나 undefined가 아님을 보증하는 방식, head 존재 한다는 의미 -> const head: Element null이 사라짐.
+
+const head = document.querySelector('#head'); // 느낌표 없이 아래처럼 코드 작성해야😙
+if (head) { // head가 있다면
+  console.log(head);
+}
+```
