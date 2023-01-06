@@ -1,11 +1,23 @@
-const a = [123, 456, "hello", "wow"];
-a = 1234;
+type A = string | number; // 넓은 타입, 넓은타입-> 좁은타입❌
+type B = string; // 좁은 타입, 좁은타입-> 넓은타입🟠
 
-const head = document.querySelector('#head');
-if (head) {
-    head.inneRHTML = 'heelo wd';
-  console.log(head);
-}
+type C = string & number; // ❌
+// 비슷한 원리로 any는 전체집합, never는 공집합으로 볼 수 있다.
+
+type A1 = { name: string }; // 넒은 타입
+type B1 = { age: number };
+type AB = A1 | B1; // 가장 넓은 타입
+type C1 = { name: string; age: number }; // 객체는 설명이 상세한 객체가 좁은 타입
+type C2 = A1 & B1; // 이렇게 표현도 가능
+
+const ab: AB = { name: "zerocho" };
+const c: C1 = ab; // 넓은 타입을 좁은타입에 대입할 수는 ❌
+const c1: C2 = { name: "zerocho", age: 29, married: false }; // 🤔🤔🤔
+// 위에는 좁은타입을 넓은타입에 넣는 것인데 왜 에러가 날까?🟠
+// "잉여속성검사"라는 것이 등장해서, 좁은타입 넓은타입 서로간에 대입가능한지 비교할 떄
+// 객체리터럴을 바로 집어넣으면 잉여타입검사가 등장하기떄문에 에러남
+const obj = { name: "zerocho", age: 29, married: false };
+const c2: C2 = obj; //🟠
 /*
 에디터가 자동으로 타입검사를 해준다. ctrl+`: 터미널 열기
 tsc --noEmit하면 처음에는 터미널이 알아듣지 못한다. 이떄 node를 사용🟢 tsc컴파일러를 설치해야 된다.
