@@ -278,7 +278,7 @@ interface C extends Human {
    breed: true;
  }
 const c:C = {breath: true, breed: true, think: true }; // type과 interface간 이동이 가능🔵
-// interface는 여러번 선언가능하고, 다 합쳐진다.🔵 다른 라이브러리에 확장성
+// interface는 type alias와 달리 여러번 선언가능하고, 다 합쳐진다.🔵 다른 라이브러리에 확장성
 interface D {
    talk: () => void;
 }
@@ -317,8 +317,65 @@ const c: C1 = ab; // 넓은 타입을 좁은타입에 대입할 수는 ❌
 const c1: C2 = { name: "zerocho", age: 29, married: false }; // 🤔🤔🤔
 // 위에는 좁은타입을 넓은타입에 넣는 것인데 왜 에러가 날까?🟠
 // "잉여속성검사"라는 것이 등장해서, 좁은타입 넓은타입 서로간에 대입가능한지 비교할 떄
-// 객체리터럴을 바로 집어넣으면 잉여타입검사가 등장하기떄문에 에러남
+// 개체리터럴을 바로 집어넣으면 잉여타입검사가 등장하기떄문에 에러남
 const obj = { name: "zerocho", age: 29, married: false };
 const c2: C2 = obj; //🟠
 // 함수간에도 대입이 있음.
+```
+## void의 두 가지 사용법
+```javascript
+interface Human {
+   talk: () => void;
+}// 2️⃣메서드로 void함수가 들어감
+
+function a1(callback: () => void): void{
+   // return '3';❌ 함수에 직접적인 리턴값이 void인 경우에만 리턴값 없음, 매개변수와 메서드는 상관없다.(리턴값이 존재해도)
+}// 3️⃣매개변수로 void함수가 들어간
+a1(() => {
+   return '3';
+});
+
+const human: Human = {
+   talk() {return 'abc';} //🤔 interface Human에서 return값을 사용하지 않겠다는 의미, 직접전인 return값 ❌
+   // () => void 리턴값이 뭐든 간에 사용하지 않겠다(없다)
+}
+
+function forEach(arr: number[], callback: (el: number) => undefined): void; // 함수 body없어도 선언 가능 아래 구현부가 있다면⭕
+function forEach() {
+
+}// 구현부, but 구현부 선언하기 싫으면 선언부에 declare를 붙여주면 된다. 단, js변환할 떄 같이 사라진다⭕
+declare function forEach3(arr: number[], callback: (el: number) => void): void; 
+declare let c: number;
+// decalre
+c=3;
+forEach3([1,2,3], el => {target.push(el)}); 
+// 외부에서 만들어진 함수같은 것들을 타입선언하는 방법
+
+let target: number[] = [];
+forEach([1,2,3], el => {target.push(el)}); // push는 return 값이 number이므로 매개변수가 undefined인 callback함수 떄문에 err가 남.
+// ❗ 근데 callback: (el: number) => void면 err가 안남. why?🤔 매개변수에서 쓰이는 void는 실제 return값이 void여도 상관없다.⭕
+// el => {target.push(el)}은 retunr값이 void다
+// void형식은 undefined에 대입할 수 없다, 반대로 undefined는 void에 대입가능
+// void는 undefined와 다르다⭕
+
+interface A {
+   talk: () => void;
+}
+const a3: A = {
+   talk() {return 3;}
+}
+const b = a.talk() as unknown as number; //원래는 retunr값이 void지만 강제로 형변환하는 방법
+// as unknown as⭕
+const b1: number = a3.talk(); // void' 형식은 'number' 형식에 할당할 수 없다
+const b3 = <number><unknown>a3.talk(); // <number><unknown>⭕
+// 근데 as unknown as 방식이 더 선호됨, 나중에 react에서 jsx방식에서 tag가 많이 사용되는데
+// ts가 <unknown>을 tag랑 헷갈려함
+const b4 = a3.talk() as unknown;
+```
+![타입간 대입 가능 표](./%ED%83%80%EC%9E%85%EA%B0%84%20%EB%8C%80%EC%9E%85%20%EA%B0%80%EB%8A%A5%20%ED%91%9C.png)
+
+## unknown과 any(그리고 타입 대입가능표)
+
+```javascript
+
 ```
