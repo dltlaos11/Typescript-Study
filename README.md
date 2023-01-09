@@ -324,6 +324,22 @@ const c2: C2 = obj; //🟠
 ```
 ## void의 두 가지 사용법
 ```javascript
+interface A { a: string}
+// const obj1: A = {a: 'hello', b:'world'} ❌
+const obj = {a: 'hello', b: 'world'}
+const obj1: A = obj;
+// 잉여 속성 검사
+// 타입붙여주는 변수에 직접 개체 리터럴을 넣으면 에러 표시가 뜨는데 중간에 다른 변수를 하나 껴서 넣으면 에러가 안뜸
+// ts에서는 개체 리터럴을 바로 대입할 때는 잉여속성검사라는 추가기능이 들어감.
+
+// void
+// 리턴값이 있으면 에러, 단 undefined만 가능⭕
+// function에서는 void를 3가지로 기억하기 
+function a(): void {
+   return undefined;
+} // 1️⃣리턴값이 void인 function
+const b =a();
+
 interface Human {
    talk: () => void;
 }// 2️⃣메서드로 void함수가 들어감
@@ -357,6 +373,7 @@ forEach([1,2,3], el => {target.push(el)}); // push는 return 값이 number이므
 // el => {target.push(el)}은 retunr값이 void다
 // void형식은 undefined에 대입할 수 없다, 반대로 undefined는 void에 대입가능
 // void는 undefined와 다르다⭕
+img(src: "타입간 대입 가능 표.png")
 
 interface A {
    talk: () => void;
@@ -373,9 +390,48 @@ const b3 = <number><unknown>a3.talk(); // <number><unknown>⭕
 const b4 = a3.talk() as unknown;
 ```
 ![타입간 대입 가능 표](./%ED%83%80%EC%9E%85%EA%B0%84%20%EB%8C%80%EC%9E%85%20%EA%B0%80%EB%8A%A5%20%ED%91%9C.png)
-
+- any와 unknown은 모두 대입은 되지만 unknown은 직접 타입정의해주어야 하고 any는 ts를 쓰기 포기한 것
+- 빈 배열에서 본 never는 모든 타입에 넣을 수 없다. never, any 모두 안 생기게 ❌, 빈 배열일 떄 타입정의 잘해주어야 함
+- 중간에 초록색 ✔ 표시가 있는데 ❌라고 생각하기, ts config에서 strict true라고 되어 있기 때문
+- any는 void에 대입 가능하다, undefined는 void에 대입가능하다, 근데 null은 void에 대입 안된다❌
+```javascript
+function z(): void { // undefined는 void에 대입가능하다
+   return undefined; //⭕
+   // return null; ❌
+}
+```
 ## unknown과 any(그리고 타입 대입가능표)
 
 ```javascript
+// any는 ts가 타입선언을 포기해버리는 것
+// unknown은 타입을 정확하게 알지 못할 떄 쓰는 것 나중에 자신이 직접 타입 정의해주어야 한다.
+interface A {
+   talk: () => void;
+}
+const a: A = {
+   talk() {return 3;}
+}
+const b: any =a.talk();
+b.method(); // any: 존재하지 않는 메서드 막 사용해도 타입 검사를 포기
+const c: unknown = a.talk();
+// c.talk(); ❌
+(c as A).talk(); // unknown: 직접 c의 타입을 정의해주어야 한다.
 
+// unknown이 나오는 가장 흔한 에러⭕
+try{
+
+} catch (error) { // var error: unknown, error가 unknown으로 표시되어 있음
+   // error.message ❌
+   (error as Error).message // error의 타입을 Error로 표기해주어야 함. 
+   // Error는 ts가 제공하는 기본 에러 타입, AxiosError도 존재⭕
+}
+
+const b1 = a.talk(); // 타입을 잘못만든 경우, const b1: void
+// b1.toString();  3.toString(); 에러❌, 그렇다면 강제로 바꿔주는 수밖에 없음
+const b2 = a.talk() as unknown as number;
+b2.toString(); // ⭕, 타입은 처음부터 잘만들어야 한다는 것❗
+
+// 근데 const b1 = a.talk(); 하고 b1.toString()한다고 안 돌아가는 것은 아니다.❗❗
+// ts 컴파일러는 "타입 검사"랑 "코드 변환"이 서로 별개의 기능이다. 그리고 실제로 js로는 유효한 코드❗
+// npx tsc(js파일로 만들어내면)하면 타입검사에서 에러는 나지만 코드 상(js)에서는 잘 돌아간다.
 ```
