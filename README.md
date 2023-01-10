@@ -322,7 +322,9 @@ const obj = { name: "zerocho", age: 29, married: false };
 const c2: C2 = obj; //🟠
 // 함수간에도 대입이 있음.
 ```
+
 ## void의 두 가지 사용법
+
 ```javascript
 interface A { a: string}
 // const obj1: A = {a: 'hello', b:'world'} ❌
@@ -334,7 +336,7 @@ const obj1: A = obj;
 
 // void
 // 리턴값이 있으면 에러, 단 undefined만 가능⭕
-// function에서는 void를 3가지로 기억하기 
+// function에서는 void를 3가지로 기억하기
 function a(): void {
    return undefined;
 } // 1️⃣리턴값이 void인 function
@@ -360,11 +362,11 @@ function forEach(arr: number[], callback: (el: number) => undefined): void; // �
 function forEach() {
 
 }// 구현부, but 구현부 선언하기 싫으면 선언부에 declare를 붙여주면 된다. 단, js변환할 떄 같이 사라진다⭕
-declare function forEach3(arr: number[], callback: (el: number) => void): void; 
+declare function forEach3(arr: number[], callback: (el: number) => void): void;
 declare let c: number;
 // decalre
 c=3;
-forEach3([1,2,3], el => {target.push(el)}); 
+forEach3([1,2,3], el => {target.push(el)});
 // 외부에서 만들어진 함수같은 것들을 타입선언하는 방법
 
 let target: number[] = [];
@@ -389,17 +391,22 @@ const b3 = <number><unknown>a3.talk(); // <number><unknown>⭕
 // ts가 <unknown>을 tag랑 헷갈려함
 const b4 = a3.talk() as unknown;
 ```
+
 ![타입간 대입 가능 표](./%ED%83%80%EC%9E%85%EA%B0%84%20%EB%8C%80%EC%9E%85%20%EA%B0%80%EB%8A%A5%20%ED%91%9C.png)
+
 - any와 unknown은 모두 대입은 되지만 unknown은 직접 타입정의해주어야 하고 any는 ts를 쓰기 포기한 것
 - 빈 배열에서 본 never는 모든 타입에 넣을 수 없다. never, any 모두 안 생기게 ❌, 빈 배열일 떄 타입정의 잘해주어야 함
 - 중간에 초록색 ✔ 표시가 있는데 ❌라고 생각하기, ts config에서 strict true라고 되어 있기 때문
 - any는 void에 대입 가능하다, undefined는 void에 대입가능하다, 근데 null은 void에 대입 안된다❌
+
 ```javascript
-function z(): void { // undefined는 void에 대입가능하다
-   return undefined; //⭕
-   // return null; ❌
+function z(): void {
+  // undefined는 void에 대입가능하다
+  return undefined; //⭕
+  // return null; ❌
 }
 ```
+
 ## unknown과 any(그리고 타입 대입가능표)
 
 ```javascript
@@ -422,7 +429,7 @@ try{
 
 } catch (error) { // var error: unknown, error가 unknown으로 표시되어 있음
    // error.message ❌
-   (error as Error).message // error의 타입을 Error로 표기해주어야 함. 
+   (error as Error).message // error의 타입을 Error로 표기해주어야 함.
    // Error는 ts가 제공하는 기본 에러 타입, AxiosError도 존재⭕
 }
 
@@ -434,4 +441,171 @@ b2.toString(); // ⭕, 타입은 처음부터 잘만들어야 한다는 것❗
 // 근데 const b1 = a.talk(); 하고 b1.toString()한다고 안 돌아가는 것은 아니다.❗❗
 // ts 컴파일러는 "타입 검사"랑 "코드 변환"이 서로 별개의 기능이다. 그리고 실제로 js로는 유효한 코드❗
 // npx tsc(js파일로 만들어내면)하면 타입검사에서 에러는 나지만 코드 상(js)에서는 잘 돌아간다.
+```
+
+## 타입 좁히기(타입 가드)
+
+```javascript
+// 타입가드, 타입 좁히기라는 기법🔵
+function numOrStr(a: number | string) {
+   // a.toFixed(1); ❌ Ts는 모든 가능성을 고려하므로 str일 가능성 떄문에 Err
+   (a as number).toFixed(1); // 이렇게도 가능하지만 위험한 코드, 인적 오류 발생 가능
+   // unknown일 떄와 남이 만든 타입이 틀렸을떄 말고는 as를 사용하지 말자🔵
+   // 타입가드 기법🟠🟠
+   if (typeof a === 'number'){
+      a.toFixed(1);
+   } else{// TS는 else문도 파악가능 위가 num이면 아래는 당연히 string일 것
+      a.charAt(3);
+   }
+   if (typeof a === 'string'){ // number, string말고 다른 타입은 당연히 안됨
+      a.charAt(3);
+   }
+}
+
+numOrStr('123');
+numOrStr(1);
+// 원시값: typeof, 배열일 떄는 Array.isArray
+function numOrNumArray(a: number | number[]){
+   if(Array.isArray(a)){ // 매개변수가 array일 경우
+      a.concat(4);
+   } else { // number
+      a.toFixed(3);
+   }
+}
+numOrNumArray(123);
+numOrNumArray([1,2,3]);
+
+class A {
+   aaa() {}
+}
+class B {
+   bbb() {}
+}
+function aOrb(param: A | B){
+   // 클래스는 그 자체로 type이 될 수 있다.
+   // 클래스 이름이 type자리에 올 수 있다. 대신 클래스 자체를 의미하는게 아니라
+   // new A()를 의미, 인스턴스를 의미, 인스턴스의 타입정의는 클래스 이름으로
+   // 클래스 자체의 타입은 typeof 클래스(typeof A)
+
+   // param.aaa(); ❌
+   if (param instanceof A){
+      param.aaa(); //🟠, 유효한 js코드
+   }
+}
+// aOrb(A); ❌ 바로 A를 넣어버리면 Error난다.
+aOrb(new B()); // 🟠, 인스턴스를 넣어주어여 Error가 안난다.
+
+type B1 = { type: 'b', bbb:string};
+type C1 = { type: 'c', ccc:string};
+type D1 = { type: 'd', ddd:string};
+
+function typeCheck(q: B | C | D){ // 객체 안에 속성만으로도 type 구별 가능
+   // 값이 다른 경우
+   if (q.type === 'b'){
+      q.bbb;
+   } else if(q.type === 'c'){
+      q.ccc;
+   } else {
+      q.ddd;
+   }
+   // 객체의 어느 타입에두 속하지 않으면 never 타입
+   // 객체에는 값이 다른 경우랑, 속성 이름 자체가 다른 경우로 객체를 구분가능
+   // 속성 이름 자체가 다른경우
+   if ('bbb' in q) {
+      q.bbb;
+   } else if ( 'ccc' in q){
+      q.ccc;
+   } else {
+      q.ddd;
+   }
+}
+const human = {type:'human'};
+const dog = {type:'dog'};
+const cat = {type:'cat'};
+// 앞으로 객체를 만들 떄는 type이라는 속성을 함꼐 만들어주는게 좋다.
+// 만약 안된다면 객체간 차이점을 만들어내야 한다.
+const human = { talk()};
+const dog = {bow()};
+const cat = {meow()};
+if('talk' in w) {
+   // w가 human인 것을 찾아낼 수 있다.
+}
+```
+
+## 커스텀 타입 가드(is, 형식 조건자)
+
+```javascript
+interface Cat {
+  meow: number;
+}
+interface Dog {
+  bow: number;
+}
+// custom 타입가드(return값에 is가 들어가 있는 것들)
+// if문 안에 사용해서 TS한테 정확한 타입이 뭔지 알려줌
+// is가 아니면 타입추론이 안되는 경우가 존재
+function catOrDog(a: Cat | Dog): a is Dog {
+  // return값에 is붙일 수 있음
+  // 타입 판별을 직접 만들어야 함, Dog임을 찾아냄을 직접 만들어야
+  if ((a as Cat).meow) {
+    return false;
+  }
+  return true;
+}
+function pets(a1: Cat | Dog) {
+  if (catOrDog(a1)) {
+    // custom한 타입가드로 표현한 다소 어려운 방법
+    console.log(a1.bow);
+  }
+  if ("meow" in a1) {
+    // Cat, Dog 구분할 떄 이렇게 해도 되긴함, 쉬운 방법
+    console.log(a1.meow);
+  }
+}
+
+// 컴파일러 설정에 따라 Error가 달라진다. 설정 수정하면 최신 js사용 가능
+// "target": "es2016", // "lib": [], "module": "commonjs"에서 아래로 변경
+// "target": "es2017", "lib": ["es2020"], "module": "ES2022"
+// 타입가드(is 존재)
+const isRejected = (
+  input: PromiseSettledResult<unknown>
+): input is PromiseRejectedResult => {
+  return input.status === "rejected";
+};
+const isFulfilled = <T>(
+  input: PromiseSettledResult<T>
+): input is PromiseFulfilledResult<T> => {
+  return input.status === "fulfilled";
+};
+
+const promises = await Promise.allSettled([
+  Promise.resolve("a"),
+  Promise.resolve("b"),
+]);
+// 이런 타입가드를 만들지 않으면 Error인지 성공인지 구별 잘안됨😅
+// const errors = promises.filter(isRejected); // Error 난 것만 구별하고 싶을떄 🟠
+// const errors = promises.filter(isFulfilled); // 성공한 것만 구별하고 싶을떄
+const errors = promises.filter((a) => true); // const errors: PromiseSettledResult<string>[], PromiseSettledResult🟠
+
+/*타입가드의 실전적인 예제
+ Promise -> Pending -> Settled(Resolved, Rejected)
+ Promise를 실행하고 나면 Pendfing상태에서 Settled가 되는데 Setteld에는 Resolved, Rejected가 있다.
+ Promise실핼하면 비동기, 비동기로 실행하는 도중에는 Pending상태이다가 완료되면 Setteld상태로 변함,
+ 근데 Setteld상태는 완료지 성공, 실패가 아니다🟠 성공했으면 Resolved고 실패했으면 Rejected 이것이 Promise
+ 성공이든 실패든 Settled는 맏다
+ promise.then().catch() // then().catch() 둘다 Settled이다.🟠🟠🔵 그 중에서 then()을 Resolved, catch()를 Rejected라고 함.
+ 그래서 PromiseSettledResult안에는 PromiseRejectedResult(실패)와 PromiseFulfilledResult(성공)가 있다.
+ const errors = promises.filter((a) => true); // const errors: PromiseSettledResult<string>[], PromiseSettledResult🟠
+ 위에 errors에서 PromiseRejectedResult가 되어야 하는데 타입 추론이 PromiseSettledResult🟠인 상태 why??🤔
+ const promises = await Promise.allSettled([Promise.resolve('a'), Promise.resolve('b')]); 만보면 성공인지 실패인지 모른다.
+ 모든 가능성을 고려해서 완료상태인 PromiseSettledResult로 추론을 해버림, 실패한 것만 모아놓고 싶다면
+ const erros = promises.filter((promise) => promise.status === "rejected"); // 실제로 js에서 promise 실패한 것만 모아놓는 코드이다.🟠
+ 근데 위처럼해도 PromiseSettledResult이다. 그럴 떄 어떻게 하냐면
+ custom 타입가드 함수를 만들고(isRejected) : input is PromiseRejectedResult가 추가되어 있는🟠🟠*/
+const erros1 = promises.filter(isRejected); //PromiseRejectedResult
+// Ts가 뭔가 타입추론을 잘못할 떄  custom하게 타입가드를 만들어서 정확한 타입을 추론할 수 있게끔 만드는게 ""custom 타입가드""🔵
+export {};
+// 타입을 구분해주는 커스텀 함수를 직접 만들 수 있음.
+// typeof, insataceof, in, Array.isArray 복잡해지면 이런 문법으로 타입추론이 안됨
+// 지금까지 js문법으로 타입을 구분했다면 함수로 구분 가능🟠
 ```

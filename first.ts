@@ -1,23 +1,76 @@
-type A = string | number; // 넓은 타입, 넓은타입-> 좁은타입❌
-type B = string; // 좁은 타입, 좁은타입-> 넓은타입🟠
+interface Cat {
+  meow: number;
+}
+interface Dog {
+  bow: number;
+}
+// custom 타입가드(return값에 is가 들어가 있는 것들)
+// if문 안에 사용해서 TS한테 정확한 타입이 뭔지 알려줌
+// is가 아니면 타입추론이 안되는 경우가 존재
+function catOrDog(a: Cat | Dog): a is Dog {
+  // return값에 is붙일 수 있음
+  // 타입 판별을 직접 만들어야 함, Dog임을 찾아냄을 직접 만들어야
+  if ((a as Cat).meow) {
+    return false;
+  }
+  return true;
+}
+function pets(a1: Cat | Dog) {
+  if (catOrDog(a1)) {
+    // custom한 타입가드로 표현한 다소 어려운 방법
+    console.log(a1.bow);
+  }
+  if ("meow" in a1) {
+    // Cat, Dog 구분할 떄 이렇게 해도 되긴함, 쉬운 방법
+    console.log(a1.meow);
+  }
+}
 
-type C = string & number; // ❌
-// 비슷한 원리로 any는 전체집합, never는 공집합으로 볼 수 있다.
+// 컴파일러 설정에 따라 Error가 달라진다. 설정 수정하면 최신 js사용 가능
+// "target": "es2017", "lib": ["es2020"], "module": "ES2022"
+// 타입가드(is 존재)
+const isRejected = (
+  input: PromiseSettledResult<unknown>
+): input is PromiseRejectedResult => {
+  return input.status === "rejected";
+};
+const isFulfilled = <T>(
+  input: PromiseSettledResult<T>
+): input is PromiseFulfilledResult<T> => {
+  return input.status === "fulfilled";
+};
 
-type A1 = { name: string }; // 넒은 타입
-type B1 = { age: number };
-type AB = A1 | B1; // 가장 넓은 타입
-type C1 = { name: string; age: number }; // 객체는 설명이 상세한 객체가 좁은 타입
-type C2 = A1 & B1; // 이렇게 표현도 가능
+const promises = await Promise.allSettled([
+  Promise.resolve("a"),
+  Promise.resolve("b"),
+]);
+// 이런 타입가드를 만들지 않으면 Error인지 성공인지 구별 잘안됨😅
+// const errors = promises.filter(isRejected); // Error 난 것만 구별하고 싶을떄 🟠
+// const errors = promises.filter(isFulfilled); // 성공한 것만 구별하고 싶을떄
+const errors = promises.filter((a) => true); // const errors: PromiseSettledResult<string>[], PromiseSettledResult🟠
 
-const ab: AB = { name: "zerocho" };
-const c: C1 = ab; // 넓은 타입을 좁은타입에 대입할 수는 ❌
-const c1: C2 = { name: "zerocho", age: 29, married: false }; // 🤔🤔🤔
-// 위에는 좁은타입을 넓은타입에 넣는 것인데 왜 에러가 날까?🟠
-// "잉여속성검사"라는 것이 등장해서, 좁은타입 넓은타입 서로간에 대입가능한지 비교할 떄
-// 객체리터럴을 바로 집어넣으면 잉여타입검사가 등장하기떄문에 에러남
-const obj = { name: "zerocho", age: 29, married: false };
-const c2: C2 = obj; //🟠
+/*타입가드의 실전적인 예제
+ Promise -> Pending -> Settled(Resolved, Rejected)
+ Promise를 실행하고 나면 Pendfing상태에서 Settled가 되는데 Setteld에는 Resolved, Rejected가 있다.
+ Promise실핼하면 비동기, 비동기로 실행하는 도중에는 Pending상태이다가 완료되면 Setteld상태로 변함,
+ 근데 Setteld상태는 완료지 성공, 실패가 아니다🟠 성공했으면 Resolved고 실패했으면 Rejected 이것이 Promise
+ 성공이든 실패든 Settled는 맏다
+ promise.then().catch() // then().catch() 둘다 Settled이다.🟠🟠🔵 그 중에서 then()을 Resolved, catch()를 Rejected라고 함.
+ 그래서 PromiseSettledResult안에는 PromiseRejectedResult(실패)와 PromiseFulfilledResult(성공)가 있다.
+ const errors = promises.filter((a) => true); // const errors: PromiseSettledResult<string>[], PromiseSettledResult🟠
+ 위에 errors에서 PromiseRejectedResult가 되어야 하는데 타입 추론이 PromiseSettledResult🟠인 상태 why??🤔
+ const promises = await Promise.allSettled([Promise.resolve('a'), Promise.resolve('b')]); 만보면 성공인지 실패인지 모른다.
+ 모든 가능성을 고려해서 완료상태인 PromiseSettledResult로 추론을 해버림, 실패한 것만 모아놓고 싶다면
+ const erros = promises.filter((promise) => promise.status === "rejected"); // 실제로 js에서 promise 실패한 것만 모아놓는 코드이다.🟠
+ 근데 위처럼해도 PromiseSettledResult이다. 그럴 떄 어떻게 하냐면
+ custom 타입가드 함수를 만들고(isRejected) : input is PromiseRejectedResult가 추가되어 있는🟠🟠*/
+const erros1 = promises.filter(isRejected); //PromiseRejectedResult
+// Ts가 뭔가 타입추론을 잘못할 떄  custom하게 타입가드를 만들어서 정확한 타입을 추론할 수 있게끔 만드는게 ""custom 타입가드""🔵
+export {};
+// 타입을 구분해주는 커스텀 함수를 직접 만들 수 있음.
+// typeof, insataceof, in, Array.isArray 복잡해지면 이런 문법으로 타입추론이 안됨
+// 지금까지 js문법으로 타입을 구분했다면 함수로 구분 가능🟠
+
 /*
 에디터가 자동으로 타입검사를 해준다. ctrl+`: 터미널 열기
 tsc --noEmit하면 처음에는 터미널이 알아듣지 못한다. 이떄 node를 사용🟢 tsc컴파일러를 설치해야 된다.
