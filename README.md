@@ -609,3 +609,48 @@ export {};
 // typeof, insataceof, in, Array.isArray 복잡해지면 이런 문법으로 타입추론이 안됨
 // 지금까지 js문법으로 타입을 구분했다면 함수로 구분 가능🟠
 ```
+
+## {}와 Object
+
+```javascript
+const x: {} = "hello";
+const y: Object = "hi"; // {}, Object 모든 타입 가능 그러나 null, undefined 제외🟠
+const xx: object = "hi"; // 소문자 object❌
+const yy: object = { hello: "world" }; // 객체 사용시 object 지양, interface, type, class위주로 사용해야
+const z: unknown = "hi";
+
+// unknown: 모든 타입 받을 수 있다. any보다는 낫다 any는 타입추론을 포기, unknowwn은 나중에 타입 정해주어야
+// unknown = {} | undefined | null
+// 4.8 버전 이전에는 아래 코드에서 unknown인 변수를 if문 안에 넣으면 그대로 unknown
+// 4.8에서 부터는 unknown인 변수를 if문 안에 넣으면 type이 {}로 나온다.
+// {}이 객체라는 뜻이 아니라 모든 타입을 가리킨다. 숫자, 문자, bool, 객체도 가능
+if (z) {
+  // 4.8 이후부터는 {}
+  z;
+} else {
+  // null
+  z;
+}
+```
+
+## readonly, 인덱스드 시그니처, 맵드 타입스
+
+```javascript
+interface A {
+  readonly a: string;
+  b: string;
+}
+const aaa: A = { a: "heelo", b: "world" };
+aaa.a = "123"; // TS에서는 readonly 사용 시 속성 실수로 바꾸는 것을 막아주므로 Err
+
+// 인덱스드 시그니처
+type B = { a1: string; b2: string; c3: string; d4: string }; // 속성이 많은데 값을 문자열로 구성하는 법
+type C = { [key: string]: string }; // 어떤 key든 간에 전부 문자열이고 값도 문자열로 구성🟠
+const aaz: C = { a1: "hello", b2: "world" };
+// 맵드 시그니처(key를 줄일 수 있음)
+type Q = "Human" | "Mammal" | "Animal"; // interface는 |, & 사용이 안됨, type만 가능
+type C1 = { [key in Q]: number }; // key가 Q중 1개
+type C2 = { [key in Q]: Q }; // key가 Q중 1개
+const zzz: C1 = { Human: 123, Mammal: 2, Animal: 5 };
+const zzz1: C2 = { Human: "Animal", Mammal: "Human", Animal: "Mammal" };
+```
