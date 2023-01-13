@@ -654,7 +654,9 @@ type C2 = { [key in Q]: Q }; // key가 Q중 1개
 const zzz: C1 = { Human: 123, Mammal: 2, Animal: 5 };
 const zzz1: C2 = { Human: "Animal", Mammal: "Human", Animal: "Mammal" };
 ```
+
 ## 클래스의 새로운 기능들
+
 ```javascript
 // class원본
 class A {
@@ -666,7 +668,7 @@ class A {
    }
    // a1: string ='123'; // 이렇게 constructor 생략하고 선언가능
    // b1: number = 123;
-   
+
    // private, 클래스 내부에서만 사용 가능
    private a3: string = '123'; // TS에서 제공하는 private
    #b3: number = 123; // js에서 제공하는 private
@@ -676,7 +678,7 @@ class A {
 
    }
 }
-const a = new A('123'); 
+const a = new A('123');
 // 생성자에 매개변수를 받는경우 constructor 필요, 매개변수 b의경우 기본값이 있다.
 // 기본값이 있는 경우 b?: number 이렇게 명시 안해줘도 된다. 단, 기본값 없는경우 ?붙여주어야 한다✅
 
@@ -684,7 +686,7 @@ type AA = A; // class의 이름은 그 자체로 type이 될 수 있다.
 // 단, A는 new A()를 가리킨다.
 const a1 : A = new A('123');
 const b1: typeof A = A;
-// class 자체의 타입은 "typeof A" class 이름은 인스턴스(new A('123'))를 가리킨다.✅  
+// class 자체의 타입은 "typeof A" class 이름은 인스턴스(new A('123'))를 가리킨다.✅
 
 interface A1 {
    readonly a: string;
@@ -702,7 +704,7 @@ class B1 implements A1 { // class의 모양을 interface로 통제 가능✅
       console.log(this.c);
       console.log(this.d);
       console.log(this.e);
-      
+
    }
 }
 /* js로 변환시 interface는 사라지며, implements도 사라짐
@@ -710,7 +712,7 @@ class B1 {
    constructor(){
       this.a: = "123";
       this.b: = 'world';
-   } 
+   }
 }*/
 
 class C extends B1 {
@@ -731,7 +733,7 @@ new C().c; // ❌, protected, private은 인스턴스에서 사용 불가✅
 // interface와 class 중 무엇을 쓸지 고민이 된다면, 실제 js에서도 남아있어야 한다면 class, 추상에 더 의존하는 코드를 작성한다면 interface
 // 추상 클래스✅, 클래스에 추상성을 부여, 클래스를 미리 모양만 만들어 둔 것, 실제 구현은 class D에서 ✅
 // 추상 클래스가 있기에 interface를 굳이 잘 안쓴다고 한다
-abstract class B3 { 
+abstract class B3 {
    private readonly a: string = '123';
    b: string = 'world';
 
@@ -740,7 +742,7 @@ abstract class B3 {
       return '3';
    }
 }
-/* js로 변환시 
+/* js로 변환시
 class B3 {
    constructor(){
       this.a: = "123";
@@ -756,6 +758,146 @@ class D extends B3 {
    }
 }
 
-// 클래스 사용할 떄 implements, abstract class, abstract method, private, protected, public 가 있어서 
+// 클래스 사용할 떄 implements, abstract class, abstract method, private, protected, public 가 있어서
 // OOP 사용 가능
+```
+
+## 옵셔널, 제네릭 기본
+
+```javascript
+function abc(a: number, b?: number, c?: number) {
+  // 옵셔널, 속성명 뒤에 ?붙이기
+}
+abc(1, 2);
+// 갯수 상관없이 매개변수를 받고 싶다면
+function abc1(...args: number[]) {
+  //🟢
+}
+// interface, type alias에서도 사용 가능
+let obj: { a: string; b?: string } = { a: "hello" };
+obj = { a: "hello" };
+
+// 재네릭
+function add(x: string | number, y: string | number): string | number {
+  return x + y;
+}
+// 원하는 선언
+add(1, 2); // 3
+add("1", "2"); // '12'
+
+// BUt 아래의 경우르 배제하지 못해서 add() 선언은 틀림.
+add(1, "2"); // '12'
+add("1", 2); // '12'
+// 그러면 안되는 경우를 제외하는 함수타입선언은 어떻게 해야할까🤔
+function add1(x: string, y: string): string;
+function add1(x: number, y: number): number;
+function add1(x: string | number, y: string | number) {
+  return x + y;
+}
+// 함수를 2개의 선언으로 나누고 구현부를 작성하여도 구현부에서 처음과 같은 타입 문제가 발생🤔
+// 그럴때 제네릭 사용🟢
+// 타입을 변수처럼 사용하는 것, 타입은 선언할 때 말고 사용할떄 정의된다.🟢
+function add2<T>(x: T, y: T): T {
+  // 굳이 T가 아니여도 됨
+  return x + y;
+}
+add2(1, 2);
+add2("1", "2");
+// T에서 모든 타입이 가능해지므로 제한을 둘 수 있다.
+function add3<T extends number | string>(x: T, y: T): T {
+  return x + y;
+}
+add3(1, 2);
+add3("1", "2");
+// 이런 방식도 가능, 제네릭으로 매개변수 타입지정
+function add4<T extends number, K extends string>(x: T, y: K): T {
+  return x + y;
+}
+add4(1, "2");
+
+// extends로 타입 제한하는 법🟢
+function add5<T extends { a: string }>(x: T): T {
+  return x;
+} // 이런꼴의 T만 넣을수있다.
+add5({ a: "hello" }); // 타입을 넣을 수 있음.
+// <T extends {...}>
+function add6<T extends string[]>(x: T): T {
+  return x;
+}
+add6(["1", "2", "3"]); // 배열만
+// <T extends any[]>
+function add7<T extends (a: string) => number>(x: T): T {
+  return x;
+}
+add7((a) => +a); // callback함수의 형태를 제안
+function add77<T extends (...args: any) => any>(x: T): T {
+  return x;
+} // 제한이 없는 모든 함수가능
+// <T extends (...args: any) => any> callback 함수
+function add8<T extends abstract new (...args: any) => any>(x: T): T {
+  return x;
+}
+class A {}
+add8(A); // class 자체를 넣고 싶다면 이렇게
+// constructor 타입정의는 "abstract new (...args: any) => any"🟢
+// add8(new A()); // ❌
+// <T extends abstract new (...args: any) => any> 생성자만 제한하고 싶을떄🟢
+type ConstructorParameter<T extends abstract new (...args: any) => any> =
+  T extends abstract new (...args: infer P) => any ? P : never;
+// abstract new (...args: any) => any 생성자
+```
+
+## 기본값 타이핑
+
+```javascript
+// js ES2015, 기본값 연산자
+const a = (b = 3, c = 5) => {
+   return '3';
+}
+// ts
+const a1 = (b:number = 3, c:number=4) => {
+   return '3';
+}
+// 매개변수 객체가 기본값인 경우🟢
+const a2 = (b:{children: string} = {children: 'juyoungjun'}) => {
+}
+// 재네릭 in React
+// trconfig에서 JSX를 React로 해주면(지금은 None) 재네릭이 <div>같은 태그와 유사하여 에러가 난다.
+const add = <T>(x:T, y:T) => ({x,y});
+const add1 = <T = unknown>(x:T, y:T) => ({x,y}); // React, 재네릭에 기본값 설정1️⃣
+const add2 = <T extends unknown>(x:T, y:T) => ({x,y}); // 2️⃣
+const add3 = <T,>(x:T, y:T) => ({x,y}); // 3️⃣
+const result = add3(1,2); // 매개변수 number로 알아서 추론
+```
+
+# lib.es5.d.ts 분석
+
+## forEach, map 제네릭 분석
+
+```javascript
+interface Array<T> { // Array<T>에서 T와 value의 T가 같으므로 아래 forEach문에서 타입추론이 가능한 것이다.🟢
+   forEach(callbackfn: (value: T, index: number, array: T[]) => void, thisArg?: any): void; // forEach
+   map<U>(callbackfn: (value: T, index: number, array: readonly T[]) => U, thisArg?: any): U[]; // map
+}
+type A<T> = "";
+class A1<T> {}; // interface, type, class 모두 재네릭 사용가능, 이름뒤에 붙임. js 변환시 모두 사라짐.
+['1',2,false].forEach((value) => {console.log(value);}); // (parameter) value: string | number | boolean, 재네릭 덕분에 추론이 된다.
+// 위 forEach 문에서 안에 콜백함수는 lib.es5.d.ts에서 forEach문의
+// callbackfn: (value: T, index: number, array: T[]) => void === (value) => {console.log(value);} 같은 callback함수🟢
+const a: Array<number> = [1, 2, 3]; // T = number
+a.forEach((value) => {console.log(value);}); // type = number
+
+function add<T>(x: T, y: T): T{ return x};
+add<number>(1,2); // 재네릭 타입 파라미터🟢
+<number>add(1,2); // <number>가 앞으로 가면 'as'로 바꾸는 강제 type 변환
+
+// lib.es5.d.ts
+every<S extends T>(predicate: (value: T, index: number, array: readonly T[]) => value is S, thisArg?: any): this is readonly S[];
+// <S extends T>: S는 T라는 타입에 부분집합
+// value is S: custom 타입 가드(is), this is readonly S[]
+
+// map
+const strings = [1,2,3].map((value) => value.toString()); // ['1', '2', '3'] string[]
+// map<U>(callbackfn: (value: T, index: number, array: readonly T[]) => U(callback함수의 리턴값의 type🟢), thisArg?: any): U[]; // map
+// T = [1,2,3]: number, U: return값으로 string
 ```
