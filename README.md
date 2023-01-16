@@ -901,3 +901,37 @@ const strings = [1,2,3].map((value) => value.toString()); // ['1', '2', '3'] str
 // map<U>(callbackfn: (value: T, index: number, array: readonly T[]) => U(callback함수의 리턴값의 type🟢), thisArg?: any): U[]; // map
 // T = [1,2,3]: number, U: return값으로 string
 ```
+
+## filter 제네릭 분석
+
+```javascript
+interface Array<T> { // Array<T>에서 T와 value의 T가 같으므로 아래 forEach문에서 타입추론이 가능한 것이다.🟢
+   forEach(callbackfn: (value: T, index: number, array: T[]) => void, thisArg?: any): void; // forEach
+   map<U>(callbackfn: (value: T, index: number, array: readonly T[]) => U, thisArg?: any): U[]; // map
+   filter<S extends T>(predicate: (value: T, index: number, array: readonly T[]) => value is S, thisArg?: any): S[]; // filter 2가지로 선언되어 있다.
+   filter(predicate: (value: T, index: number, array: readonly T[]) => unknown, thisArg?: any): T[]; // filter
+}
+
+const filtered = [1,2,3,4,5].filter((value) => value % 2);
+// filter<S extends "number">(predicate: (value: "number", index: number, array: readonly "number"[]) => value is S, thisArg?: any): S[];
+// value % 2 가 number이므로 S또한 number
+// filter<"number" extends "number">(predicate: (value: "number", index: number, array: readonly "number"[]) => value is "number", thisArg?: any): "number"[];
+
+const filtered1 = ['1', 2, '3', 4, '5'].filter((value) => typeof value === 'string'); // const filtered1: (string | number)[]으로 추론됨, 잘못된 추론 ❌
+// filter(predicate: (value: T, index: number, array: readonly T[]) => unknown, thisArg?: any): T[]; // 2번쨰 filter로 추론하면 안됨
+// filter(predicate: (value: (string | number), index: number, array: readonly string | number[]) => unknown, thisArg?: any): string | number[]; // filter
+// string | number[]; 로 이미 타입을 정해버림
+// filter<S extends T>(predicate: (value: T, index: number, array: readonly T[]) => value is S, thisArg?: any): S[]; // 1번째 filter는 가능
+// filter<S extends string | number>(predicate: (value: (string | number), index: number, array: readonly string | number[]) => value is S, thisArg?: any): S[];
+// S는 string | number의 부분집합으로 추론 가능🟢
+// 제네릭, custom 타입가드 활용🟠
+// predicate를 뺴서 1번쨰 filter함수와 똑같이 만들어줌, S가 string이 되도록 return
+const predicate = (value: string | number): value is string => typeof value === 'string'; // value is String으로 S제네릭을 조작
+// <S extends T>에서 string extends string | number가 가능하기에, S가 string이라고 알려준 것이다.
+const filtered2 = ['1', 2, '3', 4, '5'].filter(predicate);
+// 이건 안될까?🤔
+const result = ['1', 2].filter<string extends string | number>((value) => typeof value === 'string');// ❌
+// '(value: string | number, index: number, array: (string | number)[]) => value is any' 형식의 매개변수에 할당 ❌, 형식 조건자여야 됨, 형식 조건자가 타입가드가 아님
+// custom 타입가드 predicate로 형식 조건자가 되어야 하는데, (value) => typeof value === 'string'는 ❌
+const result1 = ['1', 2].filter<string>(predicate); // 이건 된다. predicate가 형식 조건자
+```
