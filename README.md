@@ -935,3 +935,75 @@ const result = ['1', 2].filter<string extends string | number>((value) => typeof
 // custom 타입가드 predicate로 형식 조건자가 되어야 하는데, (value) => typeof value === 'string'는 ❌
 const result1 = ['1', 2].filter<string>(predicate); // 이건 된다. predicate가 형식 조건자
 ```
+
+## forEach 타입 직접 만들기
+
+```javascript
+interface Arr<T> {
+  // Array가 아니라 Arr, Array는 Ts가 정해놓은 타입
+  // interface Arr {❌
+
+  // 처음에 제네릭 위치를 어디를 잡을 지 헷갈리 수 있는데 여러군데 넣어보기, 가까운 곳부터(가장 왼쪽에서) 넣어보기🟠
+  // forEach<T>(callback: (item: T) => void): void // 이렇게 바꾸면 Err, 제네릭이 제대로 추론하지 못함
+  // a.forEach<number> 하면 추론은 되지만 부자연스럽다. 그렇다면 forEach<T>이게 아니라 interface Arr<T>임을 알 수 있다.
+
+  // forEach(callback: (item: string | number) => void): void; // | 또는 관계로 표현 안될 떄는 제네릭 사용🟠
+  forEach(callback: (item: T, index: number) => void): void;
+  // lib.es5.d.ts, 실제 forEach
+  forEach(
+    callbackfn: (value: T, index: number, array: T[]) => void,
+    thisArg?: any
+  ): void;
+}
+
+const a: Arr<number> = [1, 2, 3]; // Arr => Arr<number>
+a.forEach((item, index) => {
+  console.log(item, index);
+  item.toFixed(1); // item: string | number일 떄 ❌
+});
+a.forEach((item) => {
+  console.log(item);
+  return "3";
+});
+const b: Arr<string> = ["1", "2", "3"]; // Arr => Arr<string>
+b.forEach((item) => {
+  console.log(item);
+  item.charAt(3); // item: string | number일 떄 ❌
+});
+b.forEach((item) => {
+  console.log(item);
+  return "3";
+});
+```
+
+## map 타입 직접 만들기
+
+- `+` 사용법, 문자열을 숫자로 변환🟠🟠
+
+```javascript
+["1"].map((e) => +e); // [1]
+```
+
+```javascript
+interface Arr<T> {
+  forEach(callback: (item: T, index: number) => void): void;
+
+  // map(callback: (v:T) => T): T[];
+  map<S>(callback: (v: T, idx: number) => S): S[]; // Arr<T, S>도 가능하나, map을 사용하는 순간 넣어주어야 함, 어떤것을 넣을지 모르므로
+  // lib.es5.d.ts
+  map<U>(
+    callbackfn: (value: T, index: number, array: T[]) => U,
+    thisArg?: any
+  ): U[];
+  map<U>(callbackfn: (value: T) => U): U[]; // 위에서 직접 만든 타입과 유사🥕
+}
+
+const a: Arr<number> = [1, 2, 3];
+
+const b = a.map((v, idx) => v + 1); // v===number
+const c = a.map((v, idx) => v.toString()); // const c: number[] ❌ map(callback: (v:T) => T): T[]; => map<S>(callback: (v:T) => S): S[];🟠
+const d = a.map((v, idx) => v % 2 === 0); // [false, true, false], const d: boolean[]🥕
+
+const e: Arr<string> = ["1", "2", "3"];
+const f = e.map((v) => +v); // 문자열의 배열을 숫자로 변환
+```
