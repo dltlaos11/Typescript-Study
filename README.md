@@ -1007,3 +1007,83 @@ const d = a.map((v, idx) => v % 2 === 0); // [false, true, false], const d: bool
 const e: Arr<string> = ["1", "2", "3"];
 const f = e.map((v) => +v); // 문자열의 배열을 숫자로 변환
 ```
+
+## filter 타입 직접 만들기
+
+```javascript
+interface Arr<T> {
+  // filter(callback: (v: T) => boolean): T[]; // 간단한 filter 타입 정의
+  filter<S extends T>(callback: (v: T) => v is S): S[]; // custom 타입가드🟠
+  // v is S에서 Error가 났었는데, 처음에는 callback: (v: T | S)가 되지 않을 까했는데 d가 unknown이 나옴 ❌
+  // filter(S extends T)로 S가 T의 부분집합임을 정의해야 한다.
+  // (v: T) => v is S, T가 S로 좁혀질 수 있다🟠
+
+  // lib.es5.d.ts
+  // filter<S extends T>(predicate: (value: T, index: number, array: T[]) => value is S, thisArg?: any): S[];
+
+  // 타입을 직접 만드는 것은 되게 어려운일
+  // 1️⃣ 간단하게 만들어보기
+  filter(): void;
+  // 2️⃣ 콜백함수 필요하니까
+  filter(callback: () => void): void;
+  // 3️⃣ 콜백함수의 매개변수
+  filter(callback: (v: T) => void): T[];
+  // 4️⃣ 새로운 타입의 필요성
+  filter<S>(callback: (v: T) => v is S): S[];
+  // 5️⃣ S와 T의 관련성이 없어서, T의 부분집합으로 S존재
+  filter<S extends T>(callback: (v: T) => v is S): S[];
+}
+// 형식 조건자 === custom 타입가드
+const a: Arr<number> = [1, 2, 3];
+const b = a.filter((v): v is number => v % 2 === 0); // number[]
+
+const c: Arr<number | string> = [1, "2", 3, "4", 5];
+const d = c.filter((v): v is string => typeof v === "string"); // string[]
+const e = c.filter((v): v is number => typeof v === "number"); // 형식 조건자여야 한다, custom 타입가드🟠🟠
+const predicate = (v: number | string): v is number => typeof v === "number";
+const f = c.filter(predicate); // 이런식으로 표현 가능
+```
+
+## 공변성, 반공변성
+
+```javascript
+// 공변성, 반공변성: 함수간에 서로 대입이 가능한지 불가능한지
+
+// 리턴값의 크기에 따라서, 넓은 타입으로 대입 가능
+function a(x: string): number {
+   return +x;
+}
+a('1'); // 1
+
+type B =(x: string) => number | string; // 더 넓은 타입
+const B = a; // 🤔 더 넓은 타입에 대입 가능
+
+function c(x:string): string | number { // (x: string)=> string 또는 (x: string) => number
+   return +x;
+}
+type D = (x: string) => number;
+let b: D = c; // 리턴값의 경우 반대로 좁은 타입에 넓은 타입을 넣는 것은 불가능❌
+
+// 매개변수가 다른 경우🟠🟠 매개변수의 타입이 더 작은 것에 큰 타입이 대입가능, 좁은 타입으로 대입 가능
+function e(x: string | number): number { // (x: string) => number 또는 (x:number) => number ❌
+   // 'string | number'를 하나의 type으로 보고 매개변수는 좁은 타입에 넓은 타입 대입가능🟠
+   return +x;
+}
+type F = (x:string) => number; // (x:number) => number가 (x:string) => number에 대입이 가능
+let d: F = e;
+
+// 리턴값이 넓은 타입으로, 다른 경우 매개변수가 좁은 타입으로 대입 가능🟢
+function g(x: string | number): number{
+   return +g;
+}
+type H = (x: string) => number | string;
+let z: H = g;
+
+// 타입 넓히기, ts가 모든 상황을 고려해서 type을 넓혀줌
+let r = 5; // let r: number
+// 타입 좁히기, 타입 가드..
+let q: string | number = 5;
+if (typeof q === 'number'){
+   q.
+}
+```
