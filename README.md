@@ -1087,3 +1087,103 @@ if (typeof q === 'number'){
    q.
 }
 ```
+
+## 오버로딩
+
+```javascript
+// 타입 오버로딩, 같은 타입 여러번 선언
+// declare 함수(타입) 정의만하고 구현부는 다른곳에 있다고 ts 속이기 가능
+declare function add(x: number, y: number): number
+declare function add(x: number, y: number, z: number): number
+// declare function add(x: number, y: number, z?: number): number 옵셔널
+
+add(1,2);
+add(2,3,4);
+
+// interface, class에서도 오버로딩 가능
+interface Add {
+   (x:number, y:number): number;
+   (x:string, y:string): string;
+}
+const add1: Add = (x:any, y:any) => x+y;
+// 오버로딩 설정시, 실제 구현부에서 any타입 사용해도 무관
+const q= add1(1,2);
+
+class A{
+   add(x:number, y:number): number;// 오버로딩
+   add(x:string, y:string): string;// 오버로딩
+   add(x:any, y:any) {// 구현부
+      return x+y;
+   }
+}
+
+const c = new A().add(1,2);
+```
+
+## TS의 건망증(+에러 해결법)
+
+```javascript
+interface Axios {
+   get(): void;
+}
+type A =''; // interface, 타입에일리어스 js 변환시 사라짐
+
+// Error 타입을 만들어서 Error 해결
+// interface
+interface CustomError1 extends Error {
+   // js의 Error 속성은 name, message, stack밖에 없음
+   // axios lib 사용시, response 속성을 추가
+   response?: { // 오버로딩 사용시에는 구현부에서 any 사용가능
+      data: any;
+   }
+}
+
+// class
+class CustomError extends Error {
+   response?: {
+      data: any;
+   }
+}
+
+interface CustomError_Dont_know_extends{
+   name: string;
+   message: string;
+   stack?: string;
+   response?: { // extends 안할경우 가져와도 상관없음.
+      data: any;
+   }
+}
+
+declare const axios: Axios;
+
+// catch문에서도 as보다는 타입가드를 사용하자🟢
+// interface 자체를 타입가드에서 사용불가
+(async () => {
+   try {
+      await axios.get();
+   } catch (err: unknown) { // unknown 타입 지정해줘야
+      console.log((err as CustomError1).response?.data); // 1회성
+      // CustomError에 response 속성 존재, 참고로 옵셔널 속성까지 동일해야 한다🟢
+      // console.log(err.response?.data); ❌ (err as CustomError).response?.data🟠
+      const customError = err as CustomError1; // 변수 지정해서 as생략 가능🟠
+      console.log(customError.response?.data);
+
+      // as사용하는 경우, type이 unknown인 경우, as는 인적오류 발생 가능성이 높다
+      // 타입가드를 사용하면 as로 unknown 타입명시 불필요🟢
+
+      // 실제 위처럼 코드짜면 js에서 에러❌❌, CustomError가 아니라 다른 Error일 경우 떄문
+      if (err instanceof CustomError){ // 타입가드로 타입 좁혀짐🟠🟠
+         // customError가 interface면 js에서 사라진다, instanceof 사용❌
+         // interface와 비슷하면서 js에 남아있는 역할 -> class
+         console.log(err.response?.data);
+      }
+   }
+})
+
+// 대부분 lib에서 앞에 types 붙이면 type들 확인 가능, 가끔 안되어있는 애들은
+// 직접 d.ts파일 만들어서 타입을 정해줘야하는데 그 때 제네릭을 사용해야 함.
+// any는 타입 검사포기, unknown은 타입 캐스팅하든 타입가드 붙이든 안전하게 사용해라
+// 그래서 any보다는 unknown을 더많이 사용해야
+const a = <T = unknown>(v:T): T => {return v};
+const c = a(3);
+```
