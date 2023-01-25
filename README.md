@@ -1187,3 +1187,170 @@ declare const axios: Axios;
 const a = <T = unknown>(v:T): T => {return v};
 const c = a(3);
 ```
+
+# Utility Types
+
+## Partial, Pick, Omit, Exclude, Extract 타입 분석
+
+- 타입에서 제네릭 간에 extends를 하면 삼항연산자 사용가능
+
+```javascript
+interface Profile {
+  name: string;
+  age: number;
+  married: boolean;
+}
+
+const zerocho: Profile = {
+  name: "zerocho",
+  age: 29,
+  married: false,
+}; // 🟠
+
+// const newZeroCho: Profile = {
+//    name: 'newZeroCho',
+//    age: 29,
+// } // ❌
+
+const newZeroCho1: Partial<Profile> = {
+  // Partial 타입: 객체 안 속성에 옵셔널 적용🟠🟠
+  name: "newZeroCho",
+  age: 29,
+}; // 🟠
+
+// Utility Types
+// Partial 타입 만들어보기,
+type P<T> = {
+  [Key in keyof T]?: T[Key];
+  // 인덱스드 시그니처
+  // type C = { [key: string]: string };
+  // 맵드 시그니처
+  // type Q = "Human" | "Mammal" | "Animal";
+  // type C1 = { [key in Q]: number }; // key가 Q중 1개
+};
+
+const newZeroCho2: P<Profile> = {
+  name: "newZeroCho",
+  age: 29,
+}; // 🟠
+
+// Pick 타입 만들어보기🟢
+// 제네릭 사용시 관계를 파악하고 제한조건을 먼저 적어주어야한다🟠
+// 'name' | 'age'는 Profile의 key이므로 S extends keyof T
+type K<T, S extends keyof T> = {
+  [Key in S]: T[Key];
+};
+const newZeroCho5: K<Profile, "name" | "age"> = {
+  name: "newZeroCho",
+  age: 29,
+};
+
+// Partial보다는 Pick, Omit🟠🟠 Partial보다 타입이 정확
+// Pick은 Profile에서 'name'과 'age'만 가져온다는 의미
+const newZeroCho3: Pick<Profile, "name" | "age"> = {
+  name: "newZeroCho",
+  age: 29,
+};
+
+// Omit 타입: 빼고싶은 속성이 한개인 경우 유용
+const newZeroCho4: Omit<Profile, "married"> = {
+  name: "newZeroCho",
+  age: 29,
+};
+
+// Omit 타입 만들어보기🟢
+// Omit: Pick과 Exclude(Utility Types)를 조합하여 사용.
+// type Omit<T, K extends keyof any> = Pick<T, Exclude<keyof T, K>>;
+// Exclude🟢
+// type Exclude<T, U> = T extends U ? never : T; T에서 U타입을 뺴는 것
+// 타입에서 제네릭 간에 extends를 하면 삼항연산자 사용가능🟠🟠
+// T가 U의 부분집합이면 never 아니면 T🟠
+type A = Exclude<keyof Profile, "married">; //type A = "name" | "age"🟠
+type Animal = "Cat" | "Dog" | "Human";
+type Mammal = Exclude<Animal, "Human">; // type Mammal = "Cat" | "Dog"
+// Extract🟢 T에서 U 추출
+// type Extract<T, U> = T extends U ? T : never;
+// T가 U의 부분집합이면 T 아니면 never🟠
+type Human = Extract<Animal, "Human">; // type Human = "Human"
+
+const newZeroCho6: Pick<Profile, "name" | "age"> = {
+  //type A = "name" | "age"이므로 Exclude<keyof Profile, 'married'> 대체가능🟠
+  name: "newZeroCho",
+  age: 29,
+};
+// S extends keyof any: S는 어떤 것의 Key값,
+// S extends keyof any -> string | number | symbol이  되길 원하도록
+type O<T, S extends keyof any> = Pick<T, Exclude<keyof T, S>>;
+const newZeroCho7: O<Profile, "married"> = {
+  name: "newZeroCho",
+  age: 29,
+};
+```
+
+## Required, Record, NonNullable 타입 분석
+
+- Key에 적용되는 타입들이 있고 인터페이스,객체에 적용되는 타입들이 있으므로 구별 해야 한다.
+- Partial, Pick, Required, Readonly : 인터페이스에 적용되는 타입
+- Exclude, Extract, NonNullable : Key에 적용되는 타입
+
+```javascript
+interface Profile {
+  name?: string;
+  age?: number;
+  married?: boolean;
+}
+
+// Required: 옵셔널들을 필수로 만들고 싶을 떄🟢
+const zerocho: Required<Profile> = {
+  name: "zerocho",
+  age: 29, // 하나라도 없을시, 에러
+  married: false,
+};
+
+// Required 타입 만들어보기🟢
+type R<T> = {
+  [Key in keyof T]-?: T[Key];
+  // -? : 옵셔널 제거🟠
+  // -: modifier
+};
+const zerocho1: R<Profile> = {
+  name: "zerocho",
+  age: 29, // 하나라도 없을시, 에러
+  married: false,
+};
+
+// Readonly 타입 만들기🟢
+type O<T> = {
+  readonly [Key in keyof T]: T[Key];
+  // -readonly [Key in keyof T]-?: T[Key]; readonly&옵셔널 제거해서 가져오기 가능🟠
+};
+const zerocho2: O<Profile> = {
+  name: "zerocho",
+  age: 29,
+  married: false,
+};
+//  zerocho2.name = 'nero' ❌ 수정불가
+
+// Record: 객체를 표현하는 방법🟢
+// 아무 객체나 표현할 떄
+interface Obj {
+  [key: string]: number;
+}
+const a: Obj = { a: 3, b: 5, c: 7 };
+const b: Record<string, number> = { a: 3, b: 5, c: 7 };
+
+// Record 타입 만들어보기🟢
+type C<T extends keyof any, S> = {
+  // 객체의 Key는 string, number, symbol만 가능한 제한조건🟠
+  [Key in T]: S;
+};
+const q: C<string, number> = { a: 3, b: 5, c: 7 };
+
+// NonNullable: null | undefined 제외하고 타입 가져올 떄 🟢
+type P = string | null | undefined | number | boolean;
+type K = NonNullable<P>; // type K = string | number | boolean
+
+// NonNullable 만들어보기🟢
+type N<T> = T extends null | undefined ? never : T; // string | number | boolean
+type I = N<P>;
+```
