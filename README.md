@@ -1354,3 +1354,69 @@ type K = NonNullable<P>; // type K = string | number | boolean
 type N<T> = T extends null | undefined ? never : T; // string | number | boolean
 type I = N<P>;
 ```
+## infer 타입 분석
+
+- 어떤 함수의 매개변수와 리턴값의 타입을 가져올 수 있다.
+- `infer` 위치를 바꾸면서 매개변수, 리턴값 타입을 가져올 수 있도록
+```javascript
+function zip(x:number, y: string, z: boolean): {x: number, y: string, z: boolean} {
+   return {x, y, z};
+}
+
+// Parameters✅
+type Params = Parameters<typeof zip>; // type Params = [x: number, y: string, z: boolean]
+type First = Params[0]; // First = number, type간에도 key값 꺼내오듯이 배열처럼 index로 접근 가능⭕
+
+// Parameters 만들어보기✅
+// 함수의 매개변수의 타입을 가져오려면 T가 함수여야 한다. 함수 제한조건 설정해야
+// <T extends (...args: any) => any>⭕
+
+// infer ✅인스턴스나 매개변수에 적용되며 타입 추론
+// infer는 extends에서만 사용 가능 ⭕⭕ inference:추론 
+// TS가 (...args: any)매개변수 자리를 추론하는 것, 추론 조건 ? 추론  성공시의 값 : 추론 실패시의 값
+// <typeof zip>에서 zip함수가 매개변수 (x:number, y: string, z: boolean)를 추론해서 
+// 결과값 : type Params1 = [x: number, y: string, z: boolean]⭕
+type P<T extends (...args: any) => any> = T extends (...args: infer A) => any ? A : never;
+type Params1 = P<typeof zip>;
+
+// ReturnType✅ 
+type ret = ReturnType<typeof zip>; // type Ret = {x: number;y: string;z: boolean;}
+// ReturnType 만들어보기✅ 
+// return값의 타입을 가져옴
+
+type R<T extends (...args: any) => any> = T extends (...args: any) => infer A ? A : never;
+type Ret = R<typeof zip>; // type Ret = {x: number;y: string;z: boolean;}
+
+// ConstructorParameters, InstanceType ✅
+type ConstructorParameters_<T extends abstract new (...args: any) => any> = T extends abstract new (...args: infer P) => any ? P : never;
+//  T extends abstract new (...args: infer P) => any ? P : never; 매개변수에서 infer문 
+type InstanceType_<T extends abstract new (...args: any) => any> = T extends abstract new (...args: any) => infer R ? R : any;
+// T extends abstract new (...args: any) => infer R ? R : any;인스턴스에서 infer문
+// <T extends abstract new (...args: any) => any> 제네릭 함수에 대한 제한조건
+// T extends abstract new (...args: any) => infer R ? R : any 뒤에 infer문에서도 제한조건
+// T가 생성자임을 알려주는 abstract new 생성자 모양⭕⭕
+
+class A {
+   a: string;
+   b: number;
+   c: boolean;
+   constructor(a: string, b: number, c: boolean) {
+      this.a =a;
+      this.b = b;
+      this.c = c;
+   }
+}
+const c = new A('123', 456, true);
+type C = ConstructorParameters<typeof A> // typeof 클래스가 생성자
+//[a: string, b: number, c: boolean] 생성자의 타입 가져오기
+type I = InstanceType<typeof A> // type I = A, 클래스의 인스턴스 타입 가져오기⭕클래스 A 자체를 의미
+
+const a: A = new A('123', 456, true); // 인스턴스(new 활용해서 실제 객체로 만들어낸 경우)⭕인스턴스
+
+const z = 'Hello World';
+let zb: Lowercase<typeof z>; // let zb: "hello world"
+// lib.es5.d.ts
+// intrinsic✅
+// type Lowercase<S extends string> = intrinsic; intrinsic ts코드로 처리한게 아니라 따로 처리를 해둠
+// 타입이 아닌 js코드로 구현되어있는 경우
+```

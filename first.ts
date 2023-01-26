@@ -1,17 +1,5 @@
-function zip(x:number, y: string, z: boolean): {x: number, y: string, z: boolean} {
-   return {x, y, z};
-}
 
-// Parameters✅
-type Params = Parameters<typeof zip>; // type Params = [x: number, y: string, z: boolean]
-type First = Params[0]; // First = number, type간에도 key값 꺼내오듯이 배열처럼 index로 접근 가능⭕
 
-// Parameters 만들어보기✅
-// 함수의 매개변수의 타입을 가져오려면 T가 함수여야 한다. 함수 제한조건 설정해야
-// <T extends (...args: any) => any>⭕
-// infer는 extends에서만 사용 가능 ⭕⭕ inference:추론
-type P<T extends (...args: any) => any> = T extends (...args: infer A) => any ? A : never;
-type Params1 = P<typeof zip>;
 /*
 에디터가 자동으로 타입검사를 해준다. ctrl+`: 터미널 열기
 tsc --noEmit하면 처음에는 터미널이 알아듣지 못한다. 이떄 node를 사용🟢 tsc컴파일러를 설치해야 된다.
