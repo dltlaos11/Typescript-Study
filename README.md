@@ -1354,10 +1354,12 @@ type K = NonNullable<P>; // type K = string | number | boolean
 type N<T> = T extends null | undefined ? never : T; // string | number | boolean
 type I = N<P>;
 ```
+
 ## infer 타입 분석
 
 - 어떤 함수의 매개변수와 리턴값의 타입을 가져올 수 있다.
 - `infer` 위치를 바꾸면서 매개변수, 리턴값 타입을 가져올 수 있도록
+
 ```javascript
 function zip(x:number, y: string, z: boolean): {x: number, y: string, z: boolean} {
    return {x, y, z};
@@ -1372,16 +1374,16 @@ type First = Params[0]; // First = number, type간에도 key값 꺼내오듯이 
 // <T extends (...args: any) => any>⭕
 
 // infer ✅인스턴스나 매개변수에 적용되며 타입 추론
-// infer는 extends에서만 사용 가능 ⭕⭕ inference:추론 
+// infer는 extends에서만 사용 가능 ⭕⭕ inference:추론
 // TS가 (...args: any)매개변수 자리를 추론하는 것, 추론 조건 ? 추론  성공시의 값 : 추론 실패시의 값
-// <typeof zip>에서 zip함수가 매개변수 (x:number, y: string, z: boolean)를 추론해서 
+// <typeof zip>에서 zip함수가 매개변수 (x:number, y: string, z: boolean)를 추론해서
 // 결과값 : type Params1 = [x: number, y: string, z: boolean]⭕
 type P<T extends (...args: any) => any> = T extends (...args: infer A) => any ? A : never;
 type Params1 = P<typeof zip>;
 
-// ReturnType✅ 
+// ReturnType✅
 type ret = ReturnType<typeof zip>; // type Ret = {x: number;y: string;z: boolean;}
-// ReturnType 만들어보기✅ 
+// ReturnType 만들어보기✅
 // return값의 타입을 가져옴
 
 type R<T extends (...args: any) => any> = T extends (...args: any) => infer A ? A : never;
@@ -1389,7 +1391,7 @@ type Ret = R<typeof zip>; // type Ret = {x: number;y: string;z: boolean;}
 
 // ConstructorParameters, InstanceType ✅
 type ConstructorParameters_<T extends abstract new (...args: any) => any> = T extends abstract new (...args: infer P) => any ? P : never;
-//  T extends abstract new (...args: infer P) => any ? P : never; 매개변수에서 infer문 
+//  T extends abstract new (...args: infer P) => any ? P : never; 매개변수에서 infer문
 type InstanceType_<T extends abstract new (...args: any) => any> = T extends abstract new (...args: any) => infer R ? R : any;
 // T extends abstract new (...args: any) => infer R ? R : any;인스턴스에서 infer문
 // <T extends abstract new (...args: any) => any> 제네릭 함수에 대한 제한조건
@@ -1419,4 +1421,94 @@ let zb: Lowercase<typeof z>; // let zb: "hello world"
 // intrinsic✅
 // type Lowercase<S extends string> = intrinsic; intrinsic ts코드로 처리한게 아니라 따로 처리를 해둠
 // 타입이 아닌 js코드로 구현되어있는 경우
+```
+
+## 완전 복잡한 타입 분석하기(Promise와 Awaited 편)
+
+- `infer`는 어떻게 보면 추론해주는 것이기도 하지만, `새로운 타입 변수`를 만들어내는 것과 같다.
+
+```javascript
+// 프로미스는 Promise<결과값> 타입으로 표시🟢
+const p1 = Promise.resolve(1)
+  .then((a) => a + 1)
+  .then((a) => a.toString());
+//   resolve🟠
+//   resolve<T>(value: T): Promise<Awaited<T>>; Promise<T>
+// Promise<number>, Promise<number>,Promise<number>, Promise<string>((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null)에서 TResult1(toString())
+const p2 = Promise.resolve(2); // Promise<number>
+const p3 = new Promise((res, rej) => {
+  // Promise<unknown>
+  setTimeout(res, 1000);
+});
+// new🟠
+// new <T>(executor: (resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void): Promise<T>;
+// resolve: (value: T | PromiseLike<T>) => void, resolve할 떄 value를 안넣어줬으므로 unknown
+const p4 = new Promise((res, rej) => {
+  setTimeout(() => {
+    res(); // value를 안넣고 resolve하는 것, (parameter) res: (value: unknown) => void
+  }, 1000);
+});
+
+Promise.all([p1, p2, p3]).then((result) => {
+  // Awaited<T[P]>🟢
+  // Promise<string> -> Awaited<string> -> false -> string
+  // Promise<number> -> Awaited<number> -> false -> number
+  // { '0': string, '1': number, '2': unknown, length: 3 } TS에서 이 형식을 배열로 칭함🟢🟢
+  console.log(result); // ['3', 2, undefined]🟢🟢
+});
+
+// lib.es2015.promise.d.ts🟢
+// all🟠
+// all<T extends readonly unknown[] | []>(values: T): Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }>;
+// -readonly, 매개변수에 있던 readonly를 rsult에서 제거
+// [P in keyof T] '0', '1', '2', length🟢
+// T = [p1, p2, p3] {'0': p1, '1': p2, '2': p3, length: 3 }
+// keyof T = '0' | '1' | '2' | 'length'
+
+// { -readonly [P in keyof T]: Awaited<T[P]> } 배열이다, T가 배열이였기 떄문에
+//  T를 [P in keyof T] 맵드 타입스로 만들어도 똑같이 배열이다.
+
+// Awaited<T[P]>🟢
+// .then((a) => a + 1).then((a) => a.toString()); then을 어떻게 처리해서 string으로 나타내었는지 확인해봐야🧐
+// T[P], T:배열, P: 0,1,2 이므로 배열의 값들을 제네릭으로 전달함을 의미🟢
+
+// Awaited🟢
+// type Awaited<T> =
+//     T extends null | undefined ? T : // special case for `null | undefined` when not in `--strictNullChecks` mode
+//         T extends object & { then(onfulfilled: infer F, ...args: infer _): any } ? // `await` only unwraps object types with a callable `then`. Non-object types are not unwrapped
+//             F extends ((value: infer V, ...args: infer _) => any) ? // if the argument to `then` is callable, extracts the first argument
+//                 Awaited<V> : // recursively unwrap the value
+//                 never : // the argument to `then` was not callable
+//         T; // non-object or non-thenable
+// 여기서 T는 p1, p2, p3같은 프로미스들
+
+// T extends null | undefined ? T  // p1,p2,p3가 null | undefined면 그대로, 사실상 없애줘도 되므로 삭제
+// T extends object & { then(onfulfilled: infer F, ...args: infer _): any } ? 만족🟢
+// extends가 있으므로 infer 추론 가능, T(프로미스이므로) 객체라면(object)🟢
+// { then(onfulfilled: infer F, ...args: infer _): any }, then이라는 메서드가 있는 객체인가
+// onfulfilled: infer F, F가 추론되는데 (a) => a + 1(then에 들어가는 타입) 의 타입을 추론
+// then🟢
+// then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): Promise<TResult1 | TResult2>;
+// F의 추론값은 (value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null 이 될것이다
+// F extends ((value: infer V, ...args: infer _) => any), F는 함수꼴일테니 무조건 맞다🟢
+// Awaited<V> 재귀🟢🟢
+type Awaited1<T> = T extends object & {
+  then(onfulfilled: infer F, ...args: infer _): any; // 새로운 타입 변수 infer F🔵
+} //  T extends object & Promise<> 이렇게 안한이유🥱: Promise에도 then이 있고 {then(onfulfilled: infer F, ...args: infer _): any;} 이 객체에도 then이 있으면 서로 같은 것으로 취급, Duck Typing이라고 한다.🟢
+  ? F extends (value: infer V, ...args: infer _) => any // if the argument to `then` is callable, extracts the first argument
+    ? Awaited<V> // recursively unwrap the value
+    : never // the argument to `then` was not callable
+  : T; // non-object or non-thenable
+
+const arr = [1, 2, 3] as const;
+type Arr = keyof typeof arr;
+const key: Arr = "length";
+
+type Result = Awaited<Promise<Promise<Promise<number>>>>; // type Result = number
+// 3프로미스 -> 2프로미스 -> 1프로미스의 value: number ...
+
+// Duck Typing🟢, 프로미스(객체) 모양(then)이 똑같으면 같은 것으로 취급
+type Result1 = Awaited<{ then(onfulfilled: (v: number) => number): any }>; // thenable, 프로미스가 아니라 then을 넣을 수 있는 thenable객체도 잘 추론해냄.
+// { then(onfulfilled: infer F, ...args: infer _): any; } 프로미스의 모양이다, 프로미스가 then을 갖고 있으므로 프로미스의 모양이다🟢
+// 프로미스가 아니더라도 그 일부분만 같더라도 같은 것으로 취급한다🟢🟢
 ```
