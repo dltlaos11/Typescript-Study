@@ -1512,3 +1512,94 @@ type Result1 = Awaited<{ then(onfulfilled: (v: number) => number): any }>; // th
 // { then(onfulfilled: infer F, ...args: infer _): any; } 프로미스의 모양이다, 프로미스가 then을 갖고 있으므로 프로미스의 모양이다🟢
 // 프로미스가 아니더라도 그 일부분만 같더라도 같은 것으로 취급한다🟢🟢
 ```
+
+## 완전 복잡한 타입 분석하기(bind 편)
+
+```javascript
+// bind<T>(this: T, thisArg: ThisParameterType<T>): OmitThisParameter<T>;
+// bind<T, A0, A extends any[], R>(this: (this: T, arg0: A0, ...args: A) => R, thisArg: T, arg0: A0): (...args: A) => R;
+// bind<T, A0, A1, A extends any[], R>(this: (this: T, arg0: A0, arg1: A1, ...args: A) => R, thisArg: T, arg0: A0, arg1: A1): (...args: A) => R;
+// bind<T, A0, A1, A2, A extends any[], R>(this: (this: T, arg0: A0, arg1: A1, arg2: A2, ...args: A) => R, thisArg: T, arg0: A0, arg1: A1, arg2: A2): (...args: A) => R;
+// bind<T, A0, A1, A2, A3, A extends any[], R>(this: (this: T, arg0: A0, arg1: A1, arg2: A2, arg3: A3, ...args: A) => R, thisArg: T, arg0: A0, arg1: A1, arg2: A2, arg3: A3): (...args: A) => R;
+// bind<T, AX, R>(this: (this: T, ...args: AX[]) => R, thisArg: T, ...args: AX[]): (...args: AX[]) => R;
+
+// 기본 bind🟢
+function a(this: Window | typeof obj, param: string) {
+  console.log(this.name);
+}
+
+const obj = { name: "zerocho" };
+const b = a.bind(obj);
+b("1"); // 'zerocho';
+
+// ThisParameterType🟢, bind함수의 2번쨰 자리
+type ThisParameterType1<T> = T extends (this: infer U, ...args: never) => any
+  ? U
+  : unknown;
+// T는 함수, 함수 자리에서 this를 추론
+type T = ThisParameterType<typeof a>; // type T = Window | { name: string; } this를 추론
+
+// OmitThisParameter🟢
+type OmitThisParameter1<T> = unknown extends ThisParameterType<T>
+  ? T
+  : T extends (...args: infer A) => infer R
+  ? (...args: A) => R
+  : T;
+// this가 없음.🟠 this를 없에는 함수
+// ThisParameterType을 했을때 unknown이 나온다면(타입추론이 실패했을 떄 그 함수 타입 그대로) T
+// unknown extends ThisParameterType<T>이게 아니라면 타입추론 성공했을 때 T extends (...args: infer A) => infer R ? (...args: A) => R : T;
+// T extends (...args: infer A) => infer R, 매개변수와 return 값을 알아내서 그걸 매개변수와 return 값으로 하는 함수로 만들어라🟠
+// 매개변수에서 this가 없는데 this를 제외한 나머지 매개변수를 가져오는 것이다,
+// ThisParameterType에서 타입추론이 실패했을떄 this가 없기 때문에 unknwon이 되기 떄문, 가능했다면 U🟠
+// OmitThisParameter1<T> = unknown extends ThisParameterType<T>? T : T extends (...args: infer A) => infer R ? (...args: A) => R : T;, this가 없는 상황이면 그대로 T 사용
+// 타입추론이 성공했다 하더라도 this를 제외한 매개변수와 리턴값을 사용하는 함수를 다시 만들기🟠
+type NoThis = OmitThisParameter<typeof a>; // type NoThis = (param: string) => void, this를 없앤 함수타입 추출
+
+// bind<T>(this: T, thisArg: ThisParameterType<T>): OmitThisParameter<T>;
+// bind를 쓰면 this가 없는 함수가 나올 것🟢
+
+// bind<T, A0, A extends any[], R>(this: (this: T, arg0: A0, ...args: A) => R, thisArg: T, arg0: A0): (...args: A) => R;
+// bind<T, A0, A1, A extends any[], R>(this: (this: T, arg0: A0, arg1: A1, ...args: A) => R, thisArg: T, arg0: A0, arg1: A1): (...args: A) => R;
+// bind<T, A0, A1, A2, A extends any[], R>(this: (this: T, arg0: A0, arg1: A1, arg2: A2, ...args: A) => R, thisArg: T, arg0: A0, arg1: A1, arg2: A2): (...args: A) => R;
+// bind<T, A0, A1, A2, A3, A extends any[], R>(this: (this: T, arg0: A0, arg1: A1, arg2: A2, arg3: A3, ...args: A) => R, thisArg: T, arg0: A0, arg1: A1, arg2: A2, arg3: A3): (...args: A) => R;
+// bind<T, AX, R>(this: (this: T, ...args: AX[]) => R, thisArg: T, ...args: AX[]): (...args: AX[]) => R;
+// 왜이렇게 많은 오버로딩이 있을까?🤔
+// bind - this 사용하는 경우🔵
+const zerocho = {
+  name: "zerocho",
+  sayHello(this: { name: string }) {
+    // bind -> this 제거
+    console.log(`hi ${this.name}`);
+  },
+};
+const sayHello = zerocho.sayHello;
+const sayHi = zerocho.sayHello.bind({ name: "nero" }); // bind, thisArg: { name: string; } ThisParametertype으로 뽑아냄🟠
+sayHi();
+
+// bind - this 사용하지 않는 경우❌ - 오버로딩 하는경우🟢
+function add(a: number, b: number, c: number, d: number, e: number, f: number) {
+  return a + b + c + d + e + f;
+}
+// 고차함수에서 커링하는 느낌
+const add1 = add.bind(null); // this를 null로 bind, 결과는 같다 add가 this를 사용하지❌
+add1(1, 2, 3, 4, 5, 6);
+const add2 = add.bind(null, 1); // 인수의 개수를 늘리는 경우는 매개변수 자리에 미리 값을 채워넣는 경우
+add2(2, 3, 4, 5, 6);
+// bind<T, A0, A extends any[], R>(this: (this: T, arg0: A0, ...args: A) => R, thisArg: T, arg0: A0): (...args: A) => R;
+// this: (this: T, arg0: A0, ...args: A) => R, thisArg: T, arg0: A0), 매개변수
+// (...args: A) => R, 함수의 리턴값
+// this: (this: T, arg0: A0, ...args: A) => R, this는 함수형태이고 ...args는 arg0(1 add2에서)제외한 나머지
+// thisArg: T, add2에서는 null
+// arg0: A0, add2에서는 1
+// ...args의 타입으로 리턴값 타입 결정🟢
+// 근데 ts가 매개변수 5개일 떄는 안만들어놨다.🤔
+const add3 = add.bind(null, 1, 2);
+add3(3, 4, 5, 6);
+const add4 = add.bind(null, 1, 2, 3);
+add4(4, 5, 6);
+const add5 = add.bind(null, 1, 2, 3, 4); // const add5: (e: number, f: number) => number
+add5(5, 6);
+const add6 = add.bind(null, 1, 2, 3, 4, 5); // const add6: (...args: (1 | 2 | 3 | 4 | 5)[]) => number 🤔🤔
+// add6(6); ❌'6' 형식의 인수는 '1 | 2 | 3 | 4 | 5' 형식의 매개 변수에 할당될 수 없습니다
+add6(5); // const add6: (...args: (1 | 2 | 3 | 4 | 5)[]) => number, 매개변수가 5개 이상이면 그대로 다 넘겨버림🟢
+```
