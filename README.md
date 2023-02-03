@@ -1603,3 +1603,64 @@ const add6 = add.bind(null, 1, 2, 3, 4, 5); // const add6: (...args: (1 | 2 | 3 
 // add6(6); ❌'6' 형식의 인수는 '1 | 2 | 3 | 4 | 5' 형식의 매개 변수에 할당될 수 없습니다
 add6(5); // const add6: (...args: (1 | 2 | 3 | 4 | 5)[]) => number, 매개변수가 5개 이상이면 그대로 다 넘겨버림🟢
 ```
+
+## 완전 복잡한 타입 분석하기(flat 편)
+
+```javascript
+// bind가 언어적 한계 떄문에 매개변수의 갯수가 많아지면 하나의 함수를 만들어 사용
+// flat도 이와 유사
+const a = [1, 2, 3, [1, 2], [[1], [2]]].flat(); // [1,2,3,1,2,[1],[2]];
+const a1 = [1, 2, 3, [1, 2], [[1], [2]]].flat(2); // [1,2,3,1,2,1,2]; 2차원 낮게 만들어라
+const b = [1, 2, 3, [1, 2]].flat(); // [1,2,3,1,2];
+
+// es2019, flat🟢
+// flat<A, D extends number = 1>( 기본적으로 1차원 낮게 만든다.
+//    this: A,
+//    depth?: D 기본 depth는 1
+// ): FlatArray<A, D>[]
+
+// FlatArray🟢
+// type FlatArray<Arr, Depth extends number> = {
+//    "done": Arr,
+//    "recur": Arr extends ReadonlyArray<infer InnerArr>
+//        ? FlatArray<InnerArr, [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20][Depth]>
+//        : Arr
+// }[Depth extends -1 ? "done" : "recur"];
+
+// [Depth extends -1 ? "done" : "recur"];
+type A = {
+  name: string;
+  age: number;
+};
+type B = A["name"]; // type B = string
+type B1 = A["1" extends number ? "age" : "name"]; // type B = string
+
+// FlatArray 분석🟠
+// type FlatArray<Arr, Depth extends number> = {
+//    "done": Arr,
+//    "recur": Arr extends ReadonlyArray<infer InnerArr>
+//                         ReadonlyArray<T>에서 T는 배열 요소의 타입: number, number[],number[][] ...
+// 요소의 타입을 추론해라,
+//        ? FlatArray<InnerArr, [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20][Depth]>
+// number, number[],number[][]... : 3차원 배열이 2차원배열로 변환
+// Depth가 여기서 줄어듦
+//        : Arr
+// }[Depth extends -1 ? "done" : "recur"];
+// Depth가 -1이면 done이면 flat적용이 완료된 상태, 그게 아니면 recur 재귀적으로 Depth 하나씩낮추는 것
+// 그럼 어떻게 낮춰주는가?😨 Type에서는 빼기가 안됨 type C = 3 -1;❌
+// Depth가 -1이 될 때까지 recur, 계속 FlatArray<InnerArr, [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20][Depth]>이 됨
+// Depth가 1씩 빠짐 결국, Depth는 -1이 된다.
+
+// 3차원 배열이 어떻게 1차원으로 추론이 됐는지 분석🟢
+const a2 = [1, 2, 3, [1, 2], [[1], [2]]].flat(2); // const a2: number[]
+// flat<A, D extends number = 1>(
+//    this: A,
+//    depth?: D 기본 depth는 1
+// ): FlatArray<A, D>[]
+
+// FlatArray<(number[] | number[][] | number[][][]), 2>[], depth가 2이므로 recur 돈 후 1로 변환
+// FlatArray<(number | number[] | number[][]), 1>[], 배열의 자식들을 추론해서  한단계 낮아짐
+// FlatArray<(number | number  | number[]), 0>[] "Arr extends ReadonlyArray<infer InnerArr> ? ~ : Arr(num)"  -> number
+// FlatArray<(number | -1), 2>[]
+// number[]
+```
