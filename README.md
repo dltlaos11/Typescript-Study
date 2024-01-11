@@ -1686,3 +1686,30 @@ const a2 = [1, 2, 3, [1, 2], [[1], [2]]].flat(2); // const a2: number[]
     - 사람들이 기여를 한 것이기 때문에, 실제 리액트의 타입과 다를 수 있다는 단점이 존재❌
 - 첫 번째 줄부터 보기 보다는 마지막 줄 `exports default나 export` = 부분을 보고 거슬러 올라가는 게 좋음
 - 제네릭이 제일 읽기 어려워서 제네릭 부분은 따로 필기하면서 보는게 좋음
+
+## jQuery의 타이핑
+
+```ts
+$("p").removeClass("myClass noClass").addClass("yourClass");
+$(["p", "t"]).text("hello");
+const tag = $("ul li").addClass(function (index) {
+  return "item-" + index;
+});
+$(tag).html(function (i: number) {
+  console.log(this);
+  return $(this).data("name") + "입니다";
+});
+```
+
+- jquery는 `DT`파일, `npm i -D @types/jquery`
+  - 이런 `@types`들은 개발할 때만 필요, 결국엔 js파일로 변환돼서 배포. 보통 @types는 dev디펜더시로 설치
+- 변수를 클릭하여 타입을 확인해도 되지만, 전체적인 타입의 흐름을 알고싶다면 npm사이트에서 `detailed`의 깃헙 사이트에서 `index.d.ts`참조
+  - `// TypeScript Version: 2.7` 이상부터 해당 타입들 사용 가능하다는 의미를 내포
+- `reference` 종류
+  - `types`: npm 라이브러리
+  - `path`: 현재 라이브러리 파일
+  - `lib`: TS 기본 제공 라이브러리
+  - `@types/sizzle`은 `@types/jquery` 설치 시 같이 설치되어 node_modules 안에 같이 들어이쎄 됨.
+- 항상 `index`파일을 먼저 봐야한다. 어떤 것을 참고하고 있는지 확인해야 한다.
+  - `export =jQuery;`에서 `jQuery`는 버전 아래에 참조하고 있는 파일 중에서 나온 것이다.
+    - c.f.) https://github.com/DefinitelyTyped/DefinitelyTyped/blob/ef87ee53bc501c0f0e79797add156fd8fa904ede/types/jquery/index.d.ts
