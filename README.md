@@ -1713,3 +1713,126 @@ $(tag).html(function (i: number) {
 - 항상 `index`파일을 먼저 봐야한다. 어떤 것을 참고하고 있는지 확인해야 한다.
   - `export =jQuery;`에서 `jQuery`는 버전 아래에 참조하고 있는 파일 중에서 나온 것이다.
     - c.f.) https://github.com/DefinitelyTyped/DefinitelyTyped/blob/ef87ee53bc501c0f0e79797add156fd8fa904ede/types/jquery/index.d.ts
+
+## commonjs 모듈 타이핑하는 방법과 esModuleInterop
+
+- `Typescript(ES2015)`는 기본적으로 `import`, `export` 사용
+
+  ```ts
+  import $ from "juery";
+  export default $;
+  ```
+
+- `node(commonJS)`에서는 `require`, `module.exports` 사용
+
+  ```ts
+  const $ = require("jquery");
+  module.exports = $;
+  ```
+
+- 근데 값자기 아래와 같은 문법이 나옴.
+
+  ```ts
+  export = jQuery;
+  ```
+
+  - `TypeScript`에서 `CommonJS`를 표시하는 방법🔥
+  - `jQuery`는 `CommonJS`형식으로 쓰여진 라이브러리이다.
+  - 그래서 위 문(`Statements`)은 아래와 같이 표현이 가능하다.
+
+  ```ts
+  module.exports = jQuery;
+  ```
+
+  - <details><summary>표현식과 문</summary>
+
+    - 표현식(`Expressions`)은 값을 만들어내는 코드 조각으로, 어떤 형태의 계산이나 연산을 수행합니다. 표현식은 항상 어떤 값으로 평가됩니다.
+
+    ```js
+    2 + 3; // 숫자 덧셈 표현식, 결과는 5
+    var x = 10; // 변수 할당 표현식, 결과는 10
+    myFunction(); // 함수 호출 표현식, 결과는 함수의 반환 값
+    ```
+
+    - 문(`Statements`)은 프로그램에서 실행될 수 있는 독립적인 명령이며, 어떤 동작을 수행하도록 합니다. 자바스크립트에서 문은 보통 세미콜론(;)으로 끝나며, 여러 줄로 구성될 수 있습니다.
+
+    ```js
+    var a = 5; // 변수 선언 및 할당문
+    if (a === 5) {
+      console.log("a is 5"); // 조건문 (if 문)과 함수 호출문
+    } else {
+      console.log("a is not 5");
+    }
+    ```
+
+    - 차이점
+      - 표현식은 값을 반환하고, 문은 값을 반환하지 않습니다.
+      - 표현식은 문의 하위 집합이며, 모든 표현식은 문이지만 모든 문이 표현식은 아닙니다.
+      - 표현식은 항상 어떤 값으로 평가되지만 문은 일반적으로 어떤 동작을 실행하고 값을 반환하지 않습니다.
+        c.f. )
+        예를 들어, if 문은 표현식이 아닙니다. if 문은 어떤 조건에 따라 코드 블록을 실행하므로 값으로 평가되지 않습니다. 반면에, 삼항 연산자 (? :)를 사용하는 조건부 표현식은 값으로 평가됩니다.
+      - 결론
+      이 코드는 특정 컨텍스트에서 사용되는 모듈 시스템의 문법이기 때문에 표현식이 아니라 <mark>문</mark>으로 간주된다.
+      </details>
+    - 그러면 가져올 때는?
+      ```ts
+      const $ = require("jquery"); // 이런식으로 가져와야 하는데 아래와 같이 가져오게 된다.
+      import $ = require("jquery"); // 이렇게 된다.
+      ```
+      - 그래서 `Ts`에서도 `require`를 쓰는 경우가 있다.
+      - 다른 `Library`를 가져올 때는 `import $ from 'jquery';` 이런식으로 가져온다.
+      - `Library`가 ES2015 모듈인지 `CommonJS`인지 어떤 모듈을 사용하고 있는지 구별이 어렵다.
+    - 근데 뭔가 하나의 방법으로 가져오는 방법이 필요해 보인다🤔
+      ```ts
+      import * as $ from "jquery"; // 아래와 같다고 보면 된다.
+      import $ = require("jquery");
+      ```
+      - `React`에서 `import`하는 예시를 확인해보자.
+        ```ts
+        import React from "react"; // 이렇게 작성하는 것은 원칙적으로 잘 못된 것이다. ❌
+        import * as React from "react"; // 이렇게 작성해야 한다. ✅
+        ```
+      - `/app/node_modules/@types/react/index.d.ts`에서 확인해보면
+      ```ts
+      // eslint-disable-next-line @definitelytyped/export-just-namespace
+      export = React;
+      export as namespace React;
+      ```
+      이런 문을 확인해 볼 수 있다.
+      위에서 언급했듯이,
+      ```ts
+      export = React; // 아래와 같다고 보면 된다.
+      module.exports = React;
+      ```
+      그래서 `React`도 최신 문법(`ES2015.`)이 아니라 `CommonJS` 모듈 시스템인 것이다.
+      - 엄밀히 말하면 `export as namespace React;`때문에 `UMD` 모듈 시스템이다.
+        그러므로
+        ```ts
+        import React from "react"; // 이렇게 작성하는 것은 원칙적으로 잘 못된 것이다. ❌
+        import * as React from "react"; // 이렇게 작성해야 한다. ✅
+        import React = require("react"); // 위 코드와 동일하다.
+        ```
+        근데 `import React from "react";`이런식으로 사용이 가능했던 이유는 뭘까?
+    - 여기서 `esModuleInterop`가 나온다. `tsconfig.json`의 옵션 중 하나인데
+
+    ```ts
+    "esModuleInterop": false // false라면
+    import * as React from "react"; // 이런식으로 작성해야 한다.
+    "esModuleInterop": true // true라면(기본값이 true🔥) '* as'를 붙여주기 좀 그래서, * as를 생략한 형태로 작성이 가능하다.
+    import React from "react"; // '* as'이 생략된 형태
+    ```
+
+    - `esModuleInterop`이 `CommonJS`를 `ESmodule`처럼 인식될 수 있게 해주는 옵션이라고 보면 된다.
+
+  - 만약에 `export default $;`이런 식으로 작성되있다면 최신 문법(`ESmodule`)이다.
+  - `export = $;`라면 `CommonJS`라고 보면 된다.
+    ```ts
+    export default $; // ESmodule
+    export = $; // CommonJS
+    ```
+    - 그래서
+    ```ts
+    "esModuleInterop": true // true라면 아래와 같이 작성이 가능하다.
+    import $ from 'jquery';
+    import $ from 'jquery';
+    ```
