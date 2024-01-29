@@ -6,6 +6,8 @@
 // 에러가 안뜨게 된다. 그래서 괜히 모듈 시스템으로 만들어서 타입이 꼬이는 경우가 있다.
 
 $("p").removeClass("myClass noClass").addClass("yourClass");
+const $p = $("p");
+$p.removeClass("myClass noClass").addClass("yourClass");
 // jquery에서, $ -> 변수(혹은 _)
 $(["p", "t"]).text("hello");
 

@@ -1911,3 +1911,19 @@ jyj.a
 ```
 
 - 다른 라이브러리에서 변수명이 겹친다면 충돌나므로, 커스텀이름으로 묶는 것
+- `JQuery<TElement>;`
+  - `interface JQuery<TElement = HTMLElement>`, html태그를 받는 제네릭
+  - `namespace JQuery`
+  - 2가지 타입이 존재, 뒤에 제네릭이 존재하는 첫 번째 타입이 맞음
+
+```js
+$("p").removeClass("myClass noClass").addClass("yourClass");
+// 위 코드는 아래와 동일
+const $p = $("p");
+$p.removeClass("myClass noClass").addClass("yourClass");
+```
+
+- $p의 타입은 결국 타입을 타고타고 들어와서 JQuery<HTMLElement>라는 분석이 나옴.
+  ```js
+  const $p: JQuery<HTMLElement>
+  ```
