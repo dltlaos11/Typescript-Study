@@ -77,6 +77,13 @@ $(tag).html(function (i: number) {
   console.log(this);
   return $(this).data("name") + "입니다";
 });
+
+const div = document.createElement("div");
+div.innerHTML = "hello";
+const div1 = document.createDocumentFragment();
+
+$(tag).html(div); // const div: HTMLDivElement < Element
+$(tag).html(div1); // const div1: DocumentFragment
 /*
 declare namespace JQuery {
     type TypeOrArray<T> = T | T[];
@@ -85,3 +92,42 @@ declare namespace JQuery {
     ...
 }
 */
+
+interface baoQuery<T> {
+  text(
+    param?:
+      | string
+      | number
+      | boolean
+      | ((this: T, index: number) => string | number | boolean)
+  ): this;
+  html(param: string | Document | DocumentFragment): void;
+}
+// interface에서 this는 자기 자신을 가르키며, 첫 번쨰 param이 this인 경우 타이핑이 이미 존재
+
+const $tag: baoQuery<HTMLElement> = $([
+  "p",
+  "t",
+]) as unknown as baoQuery<HTMLElement>;
+
+$tag.text("123");
+$tag.text(123);
+$tag.text(function (index) {
+  console.log(this, index);
+  return true;
+});
+$tag.text().html(document);
+
+const tagType = $("ul li")
+  .addClass("hello")
+  .addClass(function (index) {
+    return "item-" + index;
+  });
+
+$(tagType).html(document);
+// tagType이 jQuery인데 다시 jQuery로 감싼경우
+interface ArrayLike<T> {
+  readonly length: number;
+  readonly [n: number]: T;
+}
+// 유사배열, querySelectorAll같은것들

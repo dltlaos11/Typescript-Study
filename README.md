@@ -1970,6 +1970,12 @@ addClass(
 
 addClass또한 return값이 this🔥
 
+const tag = $("ul li")
+  .addClass("hello")
+  .addClass(function (index🔥) {
+    return "item-" + index;
+  });
+
 4️⃣
 $(["p", "t"]).text("hello");
 interface PlainObject<T = any> {
@@ -1988,9 +1994,75 @@ $(["p", "t"]).text(()=> {
     return 'hello';
 });
 함수 안에 존재하는 함수의 this는 상위에 있는 것을 그대로 받아오기 때문에 화살표 함수로 만들어 주는 것이 좋다.
+
+5️⃣
+$(tag).html(function (i: number) {
+  console.log(this);
+  return $(this).data("name") + "입니다";
+});
+
+const div = document.createElement('div');
+div.innerHTML ='hello';
+const div1 = document.createDocumentFragment();
+
+$(tag).html(div); // const div: HTMLDivElement < Element
+$(tag).html(div1); // const div1: DocumentFragment
+
+declare namespace JQuery {
+    type TypeOrArray<T> = T | T[];
+    type Node = Element | Text | Comment | Document | DocumentFragment;
+    Element는 태그, Document | DocumentFragment는 DOM
+    ...
+}
 ```
 
 - TS에서 첫 번째 매개변수가 this인 경우, 없다고 생각하면 된다.
   - 안에서 사용하고 있는 메서드에서 this에 대한 타이핑을 해놓았기 때문.
 - return 타입이 this인 경우 `메서드 체이닝`이 가능
   - remove and addClass
+- 함수 안에 존재하는 함수의 this는 상위에 있는 것을 그대로 받아오기 때문에 화살표 함수로 만들어 주는 것이 좋다.
+
+### jQuery 타입 직접 만들어보기
+
+```ts
+interface baoQuery<T> {
+  text(
+    param?:
+      | string
+      | number
+      | boolean
+      | ((this: T, index: number) => string | number | boolean)
+  ): this;
+  html(param: string | Document | DocumentFragment): void;
+}
+// interface에서 this는 자기 자신을 가르키며, 첫 번쨰 param이 this인 경우 타이핑이 이미 존재
+
+const $tag: baoQuery<HTMLElement> = $([
+  "p",
+  "t",
+]) as unknown as baoQuery<HTMLElement>;
+
+$tag.text("123");
+$tag.text(123);
+$tag.text(function (index) {
+  console.log(this, index);
+  return true;
+});
+$tag.text().html(document);
+
+const tagType = $("ul li")
+  .addClass("hello")
+  .addClass(function (index) {
+    return "item-" + index;
+  });
+
+$(tagType).html(document);
+// tagType이 jQuery인데 다시 jQuery로 감싼경우
+interface ArrayLike<T> {
+  readonly length: number;
+  readonly [n: number]: T;
+}
+// 유사배열, querySelectorAll같은것들
+```
+
+- 제네릭 자리 실제 타입으로 대체해보기🟠
