@@ -2016,7 +2016,7 @@ declare namespace JQuery {
 }
 ```
 
-- TS에서 첫 번째 매개변수가 this인 경우, 없다고 생각하면 된다.
+- TS에서 첫 번째 매개변수가 this인 경우, `없다고 생각하면 된다.`
   - 안에서 사용하고 있는 메서드에서 this에 대한 타이핑을 해놓았기 때문.
 - return 타입이 this인 경우 `메서드 체이닝`이 가능
   - remove and addClass
@@ -2066,3 +2066,54 @@ interface ArrayLike<T> {
 ```
 
 - 제네릭 자리 실제 타입으로 대체해보기🟠
+
+### JQuery 타입 분석 마무리
+
+JQuery.d.ts
+
+```ts
+html(
+    htmlString_function:
+        | JQuery.htmlString
+        | JQuery.Node
+        | ((this: TElement, index: number, oldhtml: JQuery.htmlString) => JQuery.htmlString | JQuery.Node),
+): this;
+
+$(tag).html(function(index) { // 함수 선언시, oldhtml과 같은 매개변수를 선택적으로 고를 수도
+  return '<div>hello</div>'
+});
+function add(x:string, y?:string): string {return x+y};
+add('1', '2'); // 함수 호출시 필요 없는 경우에 ?를 붙이거나 인수 맞춰야
+```
+
+- 인수는 생략❌, 매개변수가 생략 가능
+
+```ts
+/// <reference types="sizzle" />
+/// <reference path="JQueryStatic.d.ts" />
+/// <reference path="JQuery.d.ts" />
+/// <reference path="misc.d.ts" />
+/// <reference path="legacy.d.ts" />
+
+export = jQuery;
+```
+
+- reference로 다른 패키지 가져오거나 파일을 가져올 수 있다.
+- 모듈 시스템의 차이
+
+  ```js
+  import $ from "jquery";
+  export {};
+  ```
+
+  - 위처럼 import 문, export문의 유무에 따라서 이 파일이 어떻게 인식되는지가 달라진다.
+  - 있다면 module 시스템으로 인식하고 없다면 전역 스크립트로 인식한다.
+  - 전역 스크립트로 인식되는 경우 이 파일에서 작성한 타입들이 다른 파일에 있을 것이라고 생각하고
+  - 에러가 안뜨게 된다. 그래서 괜히 모듈 시스템으로 만들어서 타입이 꼬이는 경우가 있다.
+
+- 네임 스페이스
+  - 네임스페이스는 script src로 불러오는 라이브러리에서 주로 사용(전역)
+  - htmlString, Selector와 같이 명시되어 있는 타입들을 JQuery라는 이름으로 묶어줬다고 보면 된다.
+  - 다른 라이브러리에서 변수명이 겹친다면 충돌나므로, 커스텀이름으로 묶는 것
+
+---
