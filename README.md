@@ -2117,3 +2117,92 @@ export = jQuery;
   - 다른 라이브러리에서 변수명이 겹친다면 충돌나므로, 커스텀이름으로 묶는 것
 
 ---
+
+## Axios 타입 분석
+
+#### 처음 타입 분석을 할 떄 중요한점🔥
+
+- index.d.ts 파일에서 아래에서 위로 흐름을 파악해야 한다.
+- `export = ` 이 있다면 `CommonJS Module`이다. 아래와 같이 `import`해야 한다
+  - `import axios = require('axios');`
+  - 하지만 <mark>"esModuleInterop": true</mark> 설정을 한다면
+    - `import * as axios from 'axios';`, <mark>\* as</mark> 제거 가능
+    - `import axios from 'axios';`
+    - 결국은 `ESModule`, `ES2015` 모듈이랑 똑같이 임포트할 수 있다.
+- `export default axios`로 되어 있다면 아래와 같이 `import` 가능
+  - `import axios from 'axios';`
+
+### 다양한 방식으로 사용 가능한 axios
+
+- 브라우저(), node 양측에서 요청을 보낼 떄 사용 가능
+  - 브라우저, node에서 `fetch`(저수준) 가능하다.
+  - axios = fetch + <mark>부가기능</mark>
+  - axios는 `XMLHttpRequest`기반, fetch기반이 아님
+- `npm i axios`
+  - `npm`사이트에서 <mark>ts</mark>가 있으면 별도의 <mark>@types/axios</mark>를 설치안해도 된다.
+
+axios, index.d.ts
+
+```ts
+export interface AxiosStatic extends AxiosInstance {
+  create(config?: CreateAxiosDefaults): AxiosInstance;
+  Cancel: CancelStatic;
+  CancelToken: CancelTokenStatic;
+  Axios: typeof Axios;
+  AxiosError: typeof AxiosError;
+  HttpStatusCode: typeof HttpStatusCode;
+  readonly VERSION: string;
+  isCancel: typeof isCancel;
+  all: typeof all;
+  spread: typeof spread;
+  isAxiosError: typeof isAxiosError;
+  toFormData: typeof toFormData;
+  formToJSON: typeof formToJSON;
+  getAdapter: typeof getAdapter;
+  CanceledError: typeof CanceledError;
+  AxiosHeaders: typeof AxiosHeaders;
+}
+export interface AxiosInstance extends Axios {
+  <T = any, R = AxiosResponse<T>, D = any>(
+    config: AxiosRequestConfig<D>
+  ): Promise<R>;
+  <T = any, R = AxiosResponse<T>, D = any>(
+    url: string,
+    config?: AxiosRequestConfig<D>
+  ): Promise<R>;
+
+  defaults: Omit<AxiosDefaults, "headers"> & {
+    headers: HeadersDefaults & {
+      [key: string]: AxiosHeaderValue;
+    };
+  };
+}
+
+const a = () => {};
+a.creatr = () => {};
+a.isAxiosError = () => {};
+a.z = "123";
+
+a();
+a.create();
+a.isAxiosError();
+a.z;
+export class Axios {
+  constructor(config?: AxiosRequestConfig);
+  defaults: AxiosDefaults;
+  interceptors: {
+    request: AxiosInterceptorManager<InternalAxiosRequestConfig>;
+    response: AxiosInterceptorManager<AxiosResponse>;
+  };
+  ...
+}
+```
+
+- 함수인 객체(`AxiosInstance`)를 상속받아서 또 다른 객체의 속성들을 넣어 주는것이 가능하다.
+- `Axios`를 상속받는데 이번엔 class이다.
+- 그래서 `axios`는 클래스(`Axios`)이면서 함수(`AxiosInstance`)이면서 객체(`AxiosStatic`)인것
+- 실제로 아래와 같이 3가지 사용이 가능
+  - `new axios();`
+  - `axios();`
+  - `axios.get();`
+  - `axios.get;` `axios.delete;` 는 `class Axios`에 들어있다.
