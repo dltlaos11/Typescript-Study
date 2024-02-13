@@ -2132,6 +2132,35 @@ export = jQuery;
 - `export default axios`로 되어 있다면 아래와 같이 `import` 가능
   - `import axios from 'axios';`
 
+#### Error
+
+```ts
+모듈 '"/Users/okpanda/git/Typescript-Study/axios"'에는 기본 내보내기가 없습니다.ts(1192)
+// tsconfig.json에서 옵션 변경
+"moduleResolution": "node", /* Specify how TypeScript looks up a file from a given module specifier. */
+(node:4703) Warning: To load an ES module, set "type": "module" in the package.json or use the .mjs extension.
+// package.json 추가
+"type": "module",
+```
+
+- `tsconfig.json`에서 `"module": "ES2022" -> "module": "CommonJS"` 설정을 바꾸어주어더니 `package.json`에서 추가한 `"type": "module",`때문에 에러가 났다.
+
+  - `Typescript는` 기본적으로 ES모듈을 지원하며, js의 모듈 시스템을 변경하는데(`ES` or `CommonJS`) 2가지 방법이 존재
+    - `package.json`에서 `'types'필드`를 사용하여 바꿀 수 있음.
+      - `"type": "module"`은 `ES 모듈 시스템`을 사용하고 있음을 나타내며, `"type": "commonjs"`는 `CommonJS 모듈 시스템`을 사용하고 있음을 나타냄
+    - `tsconfig.json: "module"` 필드를 사용하여 `TypeScript` 컴파일러에게 `JavaScript` 파일을 어떤 모듈 형식으로 생성할지 지시할 수 있다.
+      - `"module": "ES2022"`는 `ES 모듈 시스템`을 사용하여 `JavaScript` 파일을 생성하고, `"module": "CommonJS"`는 `CommonJS 모듈 시스템`을 사용하여 `JavaScript` 파일을 생성
+
+- `"package.json"` 파일에서 `"type": "module"`을 추가하는 것은 해당 프로젝트가 `ES 모듈 시스템`을 사용한다는 것을 명시하는 것
+
+  - 이것은 `Node.js`에서 기본적으로 `CommonJS` 모듈 시스템을 사용하는 것과는 다르다.
+
+- `ES 모듈 시스템`은 `"import"` 및 `"export"` 구문을 사용하여 모듈을 가져오고 내보내는 데 사용된다. 반면에 `CommonJS` 모듈 시스템은 `"require"` 및 `"module.exports"`를 사용한다.
+
+- 따라서 `"type": "module"`을 추가하면 해당 프로젝트의 `JavaScript` 파일은 `ES 모듈 시스템`의 규칙을 따르게 되며, `"import"` 구문을 사용하여 외부 패키지를 가져올 수 있다. 그래서 `"axios"`와 같은 패키지를 `"import"`를 사용하여 가져올 수 있게 된다.
+
+- `"ReferenceError: exports is not defined in ES module scope"`와 같은 오류는 `CommonJS 모듈 시스템`을 사용할 때 발생하는 오류로, `"exports"`라는 변수가 ES 모듈 시스템에서는 정의되어 있지 않기 때문에 발생, `"type": "module"`을 추가하면 `Node.js`는 `ES 모듈 시스템`으로 인식하므로 `CommonJS` 관련 오류가 발생할 수 있다.
+
 ### 다양한 방식으로 사용 가능한 axios
 
 - 브라우저(), node 양측에서 요청을 보낼 떄 사용 가능
@@ -2206,3 +2235,61 @@ export class Axios {
   - `axios();`
   - `axios.get();`
   - `axios.get;` `axios.delete;` 는 `class Axios`에 들어있다.
+
+axios.ts
+
+```ts
+import axios from "./node_modules/axios/index";
+
+(async () => {
+  try {
+    const res = await axios.get("https://jsonplaceholder.typicode.com/posts/1");
+    console.log(res);
+  } catch (error) {}
+})();
+```
+
+axios.js
+
+```js
+"use strict";
+var __importDefault =
+  (this && this.__importDefault) ||
+  function (mod) {
+    return mod && mod.__esModule ? mod : { default: mod };
+  };
+Object.defineProperty(exports, "__esModule", { value: true });
+const axios_1 = __importDefault(require("axios"));
+(async () => {
+  try {
+    const res = await axios_1.default.get(
+      "https://jsonplaceholder.typicode.com/posts/1"
+    );
+    console.log(res);
+  } catch (error) {}
+})();
+
+🟠response
+
+ export interface AxiosResponse<T = any, D = any> {
+  data: T;
+  status: number;
+  statusText: string;
+  headers: RawAxiosResponseHeaders | AxiosResponseHeaders;
+  config: InternalAxiosRequestConfig<D>;
+  request?: any;
+}
+```
+
+tsconfig.json
+
+```ts
+"module": "ES2022" -> "module": "CommonJS"
+```
+
+- js변환(`npx tsc`), `node axios.js`가 귀찮으면, `npm i -g ts-node`
+  - `-g`옵션을 통해 `npx ts-node axios`가 아닌 `ts-node axios`가 가능
+  - `npx는` `npm` 패키지를 실행하는 데 사용되는 도구
+  - 일반적으로 npm 패키지를 전역으로 설치하지 않고 특정 프로젝트에서만 사용하려는 경우에 사용, npx를 사용하면 로컬 프로젝트에 설치된 패키지를 간단하게 실행할 수 있다.
+  - `npx를` 사용하면 전역 설치된 패키지를 찾아 실행할 필요가 없으며, 로컬 프로젝트의 패키지를 사용할 때 편리, 만약 전역으로 ts-node를 설치했다면 npx를 사용하지 않고 ts-node axios.ts로 실행할 수 있다.
+- `__importDefault`: CommonJS랑 ES2015Module 둘 다 지원하기 위한 트릭

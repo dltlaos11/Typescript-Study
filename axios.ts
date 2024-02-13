@@ -1,3 +1,8 @@
-import axios from "./node_modules/axios/index";
+import axios from "axios";
 
-axios.get;
+(async () => {
+  try {
+    const res = await axios.get("https://jsonplaceholder.typicode.com/posts/1");
+    console.log(res.data);
+  } catch (error) {}
+})();
