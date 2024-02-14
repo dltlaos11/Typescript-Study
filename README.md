@@ -2293,3 +2293,191 @@ tsconfig.json
   - 일반적으로 npm 패키지를 전역으로 설치하지 않고 특정 프로젝트에서만 사용하려는 경우에 사용, npx를 사용하면 로컬 프로젝트에 설치된 패키지를 간단하게 실행할 수 있다.
   - `npx를` 사용하면 전역 설치된 패키지를 찾아 실행할 필요가 없으며, 로컬 프로젝트의 패키지를 사용할 때 편리, 만약 전역으로 ts-node를 설치했다면 npx를 사용하지 않고 ts-node axios.ts로 실행할 수 있다.
 - `__importDefault`: CommonJS랑 ES2015Module 둘 다 지원하기 위한 트릭
+
+### 제네릭을 활용한 Response 타이핑
+
+```js
+ts-node axios.ts
+```
+
+response
+
+```json
+{
+  userId: 1,
+  id: 1,
+  title: 'sunt aut facere repellat provident occaecati excepturi optio reprehenderit',
+  body: 'quia et suscipit\n' +
+    'suscipit recusandae consequuntur expedita et cum\n' +
+    'reprehenderit molestiae ut ut quas totam\n' +
+    'nostrum rerum est autem sunt rem eveniet architecto'
+}
+```
+
+import axios from "axios";
+
+```ts
+(async () => {
+  try {
+    const res = await axios.get("https://jsonplaceholder.typicode.com/posts/1");
+    console.log(res.data);
+    console.log(res.data.userId);
+  } catch (error) {}
+})();
+```
+
+- `res.data.userId`의 타입은 any, 타입을 명시해줘야.
+
+`axios.get`의 타입을 확인해보면
+
+```ts
+  get<T = any, R = AxiosResponse<T>, D = any>(url: string, config?: AxiosRequestConfig<D>): Promise<R>;
+
+  export interface AxiosResponse<T = any, D = any> {
+  data: T;
+  status: number;
+  statusText: string;
+  headers: RawAxiosResponseHeaders | AxiosResponseHeaders;
+  config: InternalAxiosRequestConfig<D>;
+  request?: any;
+}
+```
+
+- 제네릭의 첫 번째 인자인, T는 `any`인 상태
+- `get`의 제네릭 매개변수 자리에 명시해주면 된다.
+
+```ts
+import axios from "axios";
+
+interface Post {
+  userId: number;
+  id: number;
+  title: string;
+  body: string;
+}
+// type Post = {userId: number, id: number, title: string, body: string} // type alias
+(async () => {
+  try {
+    const res = await axios.get<Post>(
+      "https://jsonplaceholder.typicode.com/posts/1"
+    );
+    console.log(res.data);
+    console.log(res.data.userId);
+    console.log(res.data.id);
+    console.log(res.data.title);
+    console.log(res.data.body);
+  } catch (error) {}
+})();
+
+(method) Axios.get<Post, AxiosResponse<Post, any>, any>(url: string, config?: AxiosRequestConfig<any> | undefined): Promise<AxiosResponse<Post, any>>
+// 현재 내 axios.get의 타입
+```
+
+- 이제 userId의 타입이 명확해졌다.
+- interface로해도 되고 type alias로 해도 가능하다.
+  - interface: 객체지향적
+  - type alias: 간단하게
+- `get`의 타입을 보면 `any`가 있는데, 없애주고 싶다면 직접 넣으면 된다.
+  - `await axios.get<Post, AxiosResponse<Post>>`
+
+`axios.post`의 타입을 확인해보자
+
+```ts
+(async () => {
+  try {
+    const res2 = await axios.post(
+      "https://jsonplaceholder.typicode.com/posts/",
+      {
+        title: "foo",
+        body: "bar",
+        userId: 1,
+      }
+    );
+  } catch (error) {}
+})();
+```
+
+```ts
+  post<T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R>;
+
+export interface AxiosRequestConfig<D = any> {
+  url?: string;
+  method?: Method | string;
+  baseURL?: string;
+  transformRequest?: AxiosRequestTransformer | AxiosRequestTransformer[];
+  transformResponse?: AxiosResponseTransformer | AxiosResponseTransformer[];
+  headers?: (RawAxiosRequestHeaders & MethodsHeaders) | AxiosHeaders;
+  params?: any;
+  paramsSerializer?: ParamsSerializerOptions | CustomParamsSerializer;
+  data?: D;
+  ...
+}
+```
+
+- `any`타입을 명확하게 하고자한다면,
+
+```ts
+interface Created {}
+interface Data {
+  title: string;
+  body: string;
+  userId: number;
+}
+const res2 = await axios.post<Created, AxiosResponse<Created>, Data>(
+  "https://jsonplaceholder.typicode.com/posts/",
+  {
+    title: "foo",
+    body: "bar",
+    userId: 1,
+  }
+);
+```
+
+- `AxiosRequestConfig`, `fetch`에는 없는 다양한 속성들이 있기에 `axios`가 더 편한 것.
+- `post` 메서드의 2번째 인자에는 data가 들어가는데 여기서는 any로 명시되어 있다.
+- 사실 위에서 요청한 `post`에서는 `D`타입이 안쓰이고 있다.
+
+```ts
+const res3 = await axios({
+  method: "post",
+  url: "https://jsonplaceholder.typicode.com/posts/",
+  data: {
+    title: "foo",
+    body: "bar",
+    userId: 1,
+  },
+});
+const res4 = await axios("https://jsonplaceholder.typicode.com/posts/", {
+  method: "post",
+  url: "https://jsonplaceholder.typicode.com/posts/",
+  data: {
+    title: "foo",
+    body: "bar",
+    userId: 1,
+  },
+});
+```
+
+위에서 `axios`는
+
+```ts
+export interface AxiosInstance extends Axios {
+  <T = any, R = AxiosResponse<T>, D = any>(
+    config: AxiosRequestConfig<D>
+  ): Promise<R>; // 🟠 요 타입에 걸린다.
+  <T = any, R = AxiosResponse<T>, D = any>(
+    url: string,
+    config?: AxiosRequestConfig<D>
+  ): Promise<R>; // res4
+
+  defaults: Omit<AxiosDefaults, "headers"> & {
+    headers: HeadersDefaults & {
+      [key: string]: AxiosHeaderValue;
+    };
+  };
+}
+```
+
+- `config: AxiosRequestConfig<D>`는 위에서 언급했으며 이상하게도 `D`는 안쓰인다(?)
+  - `axios`가 그렇게 만들었다.
+- `axios`에는 다양한 요청법이 존재, `AxiosRequestConfig`, `AxiosInstance` 등..
