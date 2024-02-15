@@ -2481,3 +2481,74 @@ export interface AxiosInstance extends Axios {
 - `config: AxiosRequestConfig<D>`는 위에서 언급했으며 이상하게도 `D`는 안쓰인다(?)
   - `axios`가 그렇게 만들었다.
 - `axios`에는 다양한 요청법이 존재, `AxiosRequestConfig`, `AxiosInstance` 등..
+
+### AxiosError와 unknown error 대처법
+
+axios index.d.ts
+
+```ts
+export class AxiosError<T = unknown, D = any> extends Error {
+  constructor(
+      message?: string,
+      code?: string,
+      config?: InternalAxiosRequestConfig<D>,
+      request?: any,
+      response?: AxiosResponse<T, D>
+  );
+
+  config?: InternalAxiosRequestConfig<D>;
+  code?: string;
+  request?: any;
+  response?: AxiosResponse<T, D>; // 옵셔널체이닝🟠
+  ...
+}
+```
+
+```ts
+(async () => {
+  try {
+    ...
+  } catch (error) {
+    1️⃣
+    console.log((error as AxiosError).response?.data);
+    error.response?.data; //error'은(는) 'unknown' 형식, ts는 건망증이 심하다.
+
+    2️⃣
+    const errResponse = (error as AxiosError).response;
+    console.error(errResponse?.data);
+    errResponse?.data; // const errResponse: AxiosResponse<unknown, any> | undefined
+
+    3️⃣
+    if (error instanceof AxiosError) {
+      error.response; // (local var) error: AxiosError<any, any> 보장이 된다.
+    }
+
+    export function isAxiosError<T = any, D = any>(payload: any): payload is AxiosError<T, D>;
+
+    if (axios.isAxiosError<{message: string}>(error)) {
+      console.error(error.response?.data.message); // (property) message: string | undefined 🔥 바뀐 후
+    }
+
+    if (axios.isAxiosError(error)) {
+      console.error(
+        (error.response as AxiosResponse<{ message: string }>)?.data.message
+      ); // (property) message: string 🔥 바뀌기 전
+      console.error(
+        (error as AxiosError<{ message: string }>).response?.data.message
+      ); // 🔥 error 부분에 as 명시해도 가능
+    }
+  }
+})();
+
+```
+
+- 1️⃣ 변수로 에러를 지정하지 않은 경우, 다음 줄에서 ts가 인식을 못함
+- 2️⃣ 변수로 에러 정의시, ts가 인식
+- 2️⃣ 는 좋은 방법이 아니다. catch문에는 어떤 Errror가 올지 모른다.
+- 3️⃣`커스텀 타입 가드`가 좋은 방법이다.
+  - error의 타입이 보장된다.
+  - `class AxiosError`처럼 `class`여야 타입가드가 가능
+  - `isAxiosError`에서도 데이터 타입에 대한 제네릭을 제공한다(이전엔 안했었음)🔥
+  - 위 코드에서 마지막이 바뀌기 전 코드다.
+    - `as`를 안써주도록 하는 것이 좋다.
+    - `{ message: string }`가 `response`에 전달되고 `data`까지 전달됨.
