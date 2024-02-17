@@ -2588,3 +2588,23 @@ post: <T, R = AxiosResponse<T>, D=any> -> 기본타입 any로 필수를 선택�
   // export function isAxiosError<T = any, D = any>(payload: any): payload is AxiosError<T, D>;
 }
 ```
+
+axios.index.d.ts에서
+
+```ts
+// export default axios;
+
+axios("http://localhost:8080");
+axios.get("http://localhost:8080");
+const a = new axios.Axios({ url: "http://localhost:8080" }).defaults;
+axios.defaults;
+```
+
+- 위에서 new를 호출해 인스턴스화해서 .defaults를 붙이거나, axios.defaults가 가능하게 하기 위해서는
+- `export class Axios`와 `export interface AxiosStatic`를 분리하였기 떄문
+- 연달아 상속하는 방식을 사용
+
+```ts
+export interface AxiosStatic extends AxiosInstance
+export interface AxiosInstance extends Axios
+```
