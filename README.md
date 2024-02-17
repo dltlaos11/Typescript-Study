@@ -2552,3 +2552,39 @@ export class AxiosError<T = unknown, D = any> extends Error {
   - 위 코드에서 마지막이 바뀌기 전 코드다.
     - `as`를 안써주도록 하는 것이 좋다.
     - `{ message: string }`가 `response`에 전달되고 `data`까지 전달됨.
+
+### Axios 타입 직접 만들기
+
+```ts
+interface Config<D = any> {
+  method?: "post" | "get" | "put" | "delete" | "head" | "options";
+  // method?: string; 타입은 좁히는 것이 좋다.
+  url?: string;
+  data?: D;
+}
+
+interface A {
+  get: <T = any, R = AxiosResponse<T>>(url: string) => Promise<R>;
+  // res.data가 T, 응답 자체는 AxiosResponse 이므로 AxiosResponse을 제네릭 변수로 저장한 Promise<R>이 return값
+  // T=any, 코드에 제네릭을 안쓰고 싶을수도 있으니 T에도 any부여
+  post: <T = any, R = AxiosResponse<T>, D = any>(
+    url: string,
+    data: D
+  ) => Promise<R>;
+  // await이 붙을 수 있다면, return 값은 Promise. Promise는 ts에서 기본적으로 제공을 해줌.
+
+  /*
+지금까지 axios타입분석에서 왜 data=any를 할당했는지에 대한 이유
+post: <T, R = AxiosResponse<T>, D>(url: string, data: D) => Promise<R>;
+Error: 필수 형식 매개 변수는 선택적 형식 매개 변수 다음에 올 수 없습니다.❌
+R = AxiosResponse<T>: 선택적, D: 필수
+a.post<Created, Data> -> AxiosResponse가 없어도 된다.
+post: <T, R = AxiosResponse<T>, D=any> -> 기본타입 any로 필수를 선택으로 변경
+*/
+  (config: Config): void;
+  (url: string, config: Config): void;
+  isAxiosError: (error: unknown) => error is AxiosError;
+  // 같은 변수명이면 오버로딩되기에 다른파일에 있는 타입이 영향을 미칠 수 있다. 🟠
+  // export function isAxiosError<T = any, D = any>(payload: any): payload is AxiosError<T, D>;
+}
+```
