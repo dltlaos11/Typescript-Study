@@ -2608,3 +2608,142 @@ axios.defaults;
 export interface AxiosStatic extends AxiosInstance
 export interface AxiosInstance extends Axios
 ```
+
+## React 타입 분석
+
+### UMD 모듈과 tsconfig.json jsx 설정하기
+
+- `npm i @types/react -D` 타입이 없는 라이브러리 `DT`이므로 `@types/react`
+
+`@types/react index.d.ts`
+
+```ts
+// eslint-disable-next-line @definitelytyped/export-just-namespace
+export = React;
+export as namespace React;
+```
+
+- `export =` or `export default`
+  - `export =`
+    - `CommonJS Module` 🟠
+    - `import * as React from 'react';`이렇게 해도 되지만 -> `import React from 'react';` 보통 이런식으로 한다.
+    ```ts
+    import React from "react";
+    import { useState, useCallback, useRef } from "react";
+                            ⬇️
+    import React, { useState, useCallback, useRef } from "react";
+    ```
+    - `"esModuleInterop": true`🔥🔥 덕분에 위 2가지 경우가 가능한 것
+    - `React`는 `CommonJS Module`문법이라서 위 옵션을 켜줘야 한다.
+    ```ts
+    return (
+      <>
+        <div>{word}</div>
+        <form onSubmit={onSubmitForm}>
+          <input ref={inputEl} value={value} onChange={onChange} />
+          <button>입력!</button>
+        </form>
+        <div>{result}</div>
+      </>
+    );
+    ```
+    - `Typescript`가 `jsx`부분을 인식하지 못함
+      - `"jsx": "react"` 마찬가지로 `tsconfig.json`에서 설정
+    - `import React = require('react');`이런 식으로 `import`해야 하는데 이런식의 `import`는 `react`에서 본적이 ❌
+  - `export default`
+    - `ES Module`
+    - `import XXXX from '../../'`
+- `export as namespace React;`까지 있으면 UMD모듈이라고 한다.
+
+- `React`에서 컴포넌트는 함수, `(prop) => JSX`
+
+  ```ts
+  const WordRelay: FunctionComponent = () => {
+    ...
+  }
+  ```
+
+  - `FunctionComponent`의 타입을 보면
+
+  ```ts
+  interface FunctionComponent<P = {}> {
+    (props: P, context?: any): ReactNode;
+    /**/
+  }
+  ```
+
+  - const WordRelay: FunctionComponent = `()` 부분이 `P`인 제네릭
+  - `return` 부분이 `ReactNode`타입이며, `ReactElement`일 것이다.
+    ```ts
+    type ReactNode =
+    | ReactElement 🟠
+    | string
+    | number
+    | Iterable<ReactNode>
+    | ReactPortal
+    | boolean
+    | null
+    | undefined
+    | DO_NOT_USE_OR_YOU_WILL_BE_FIRED_EXPERIMENTAL_REACT_NODES[
+        keyof DO_NOT_USE_OR_YOU_WILL_BE_FIRED_EXPERIMENTAL_REACT_NODES
+    ];
+    ```
+
+  ```ts
+  declare global {
+    /**
+     * @deprecated Use `React.JSX` instead of the global `JSX` namespace.
+     */
+    namespace JSX {
+        interface IntrinsicElements {
+      // HTML
+      a: React.DetailedHTMLProps<React.AnchorHTMLAttributes<HTMLAnchorElement>, HTMLAnchorElement>;
+      abbr: React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
+      address: React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
+      area: React.DetailedHTMLProps<React.AreaHTMLAttributes<HTMLAreaElement>, HTMLAreaElement>;
+      ...
+      }
+    }
+  }
+  interface FormHTMLAttributes<T> extends HTMLAttributes<T> {
+    acceptCharset?: string | undefined;
+    action?:
+        | string
+        | undefined
+        | DO_NOT_USE_OR_YOU_WILL_BE_FIRED_EXPERIMENTAL_FORM_ACTIONS[
+            keyof DO_NOT_USE_OR_YOU_WILL_BE_FIRED_EXPERIMENTAL_FORM_ACTIONS
+        ];
+    autoComplete?: string | undefined;
+    encType?: string | undefined;
+    method?: string | undefined;
+    name?: string | undefined;
+    noValidate?: boolean | undefined;
+    target?: string | undefined;
+  }
+  ```
+
+  - `JSX`타입에서 여러가지 태그에 대한 타입들이 확인 가능.
+
+  ```ts
+  interface DOMAttributes<T> {
+    children?: ReactNode | undefined;
+    dangerouslySetInnerHTML?:
+      | {
+          // Should be InnerHTML['innerHTML'].
+          // But unfortunately we're mixing renderer-specific type declarations.
+          __html: string | TrustedHTML;
+        }
+      | undefined;
+
+    // Clipboard Events
+    onCopy?: ClipboardEventHandler<T> | undefined;
+    onCopyCapture?: ClipboardEventHandler<T> | undefined;
+    onCut?: ClipboardEventHandler<T> | undefined;
+    onCutCapture?: ClipboardEventHandler<T> | undefined;
+    onPaste?: ClipboardEventHandler<T> | undefined;
+    onPasteCapture?: ClipboardEventHandler<T> | undefined;
+    ...
+  }
+  ```
+
+  - `DOM`에 관한 모든 것이 있기에 `html`처럼 코딩이 가능
