@@ -1,10 +1,27 @@
 // import * as React from "react";
 // import React from "react";
 
-import React, { useState, useCallback, useRef, FunctionComponent } from "react";
+import React, {
+  useState,
+  useCallback,
+  useRef,
+  FunctionComponent,
+  ReactElement,
+  FC,
+  ReactNode,
+} from "react";
+// JSX.Element는 import할 필요 ❌
 // import { useState, useCallback, useRef } from "react";
 
-const WordRelay: FunctionComponent = () => {
+interface P {
+  name: string;
+  title: string;
+  children?: ReactNode | undefined;
+}
+
+const WordRelay: FC<P> = (props) => {
+  // const WordRelay: FunctionComponent<P> = (props) => {
+  // const WordRelay = (props: P): ReactElement | JSX.Element => {
   const [word, setWord] = useState<string>("제로초");
   const [value, setValue] = useState("");
   const [result, setResult] = useState("");

@@ -2747,3 +2747,129 @@ export as namespace React;
   ```
 
   - `DOM`에 관한 모든 것이 있기에 `html`처럼 코딩이 가능
+
+### 함수 컴포넌트(FC vs VFC), Props 타이핑
+
+```ts
+const WordRelay = () => {
+  ...
+}
+```
+
+- `WordRelay`의 타입은 `React.JSX.Element`
+
+```ts
+declare global {
+    /**
+     * @deprecated Use `React.JSX` instead of the global `JSX` namespace.
+     */
+    namespace JSX {
+        // We don't just alias React.ElementType because React.ElementType
+        // historically does more than we need it to.
+        // E.g. it also contains .propTypes and so TS also verifies the declared
+        // props type does match the declared .propTypes.
+        // But if libraries declared their .propTypes but not props type,
+        // or they mismatch, you won't be able to use the class component
+        // as a JSX.ElementType.
+        // We could fix this everywhere but we're ultimately not interested in
+        // .propTypes assignability so we might as well drop it entirely here to
+        //  reduce the work of the type-checker.
+        // TODO: Check impact of making React.ElementType<P = any> = React.JSXElementConstructor<P>
+        type ElementType = string | React.JSXElementConstructor<any>;
+        interface Element extends React.ReactElement<any, any> {} // 🔥
+        ...
+    }
+}
+
+
+import React, {
+  useState,
+  useCallback,
+  useRef,
+  FunctionComponent,
+  ReactElement,
+  FC,
+} from "react";
+// JSX.Element는 import할 필요 ❌
+```
+
+- `JSX.Element`는 `ReactElement`와 동일하다.
+- `const WordRelay: FunctionComponent`에서
+
+```ts
+interface FunctionComponent<P = {}> {
+  (props: P, context?: any): ReactNode;
+  /**/
+}
+```
+
+- `ReactNode`에 `ReactElement`가 포함되어 있다.
+
+```ts
+interface P {
+  name: string;
+  title: string;
+}
+
+1️⃣
+const WordRelay: FunctionComponent<P> = (props) => {
+// const WordRelay: FC<P> = (props) => {
+  props.name or props.title 🔥
+}
+2️⃣
+const WordRelay = (props: P):ReactElement | JSX.Element => {}
+3️⃣
+function WordRelay(props: P) {}
+```
+
+- `ReactElement`나 `JSX.Element` 둘 중 하나만 적어도 되며, 안적어도 된다. 알아서 추론하기 때문🤔
+- `const WordRelay: FunctionComponent<P>`는 `React`가 만들어놓았기에 1️⃣을 나은 방법이라 생각.
+- 요즘은 3️⃣도 종종
+
+index.d.ts
+
+```ts
+// ver18
+interface VoidFunctionComponent<P = {}> {
+  (props: P, context?: any): ReactNode;
+  propTypes?: WeakValidationMap<P> | undefined;
+  contextTypes?: ValidationMap<any> | undefined;
+  defaultProps?: Partial<P> | undefined;
+  displayName?: string | undefined;
+}
+interface FunctionComponent<P = {}> {
+  (props: P, context?: any): ReactNode;
+}
+
+// ver17
+interface VoidFunctionComponent<P = {}> {
+  (props: PropsWithChildren, context?: any): ReactNode;
+  propTypes?: WeakValidationMap<P> | undefined;
+  contextTypes?: ValidationMap<any> | undefined;
+  defaultProps?: Partial<P> | undefined;
+  displayName?: string | undefined;
+}
+interface FunctionComponent<P = {}> {
+  (props: PropsWithChildren, context?: any): ReactNode;
+}
+```
+
+- 17버전에서는 `FunctionComponent`, `VoidFunctionComponent`에서 `props`의 타입이 `PropsWithChildren`였다.
+- 18버전에서는 둘다 안해주었고 `VoidFunctionComponent`는 `deprecated`됨
+- `PropsWithChildren`가 무슨 역할이였을까
+
+```ts
+interface P {
+  name: string;
+  title: string;
+  children?: ReactNode | undefined; // =PropsWithChildren
+}
+
+const Parent = () => {
+  return (
+    <WordRelay name="name" title="title">
+      <div></div> // 이 부분이 children🟠 그렇기에 타입이 ReactNode인 것
+    </WordRelay>
+  );
+};
+```
