@@ -9,6 +9,7 @@ import React, {
   ReactElement,
   FC,
   ReactNode,
+  useEffect,
 } from "react";
 // JSX.Element는 import할 필요 ❌
 // import { useState, useCallback, useRef } from "react";
@@ -22,7 +23,11 @@ interface P {
 const WordRelay: FC<P> = (props) => {
   // const WordRelay: FunctionComponent<P> = (props) => {
   // const WordRelay = (props: P): ReactElement | JSX.Element => {
-  const [word, setWord] = useState<string>("제로초");
+  const [word, setWord] = useState<string>("bao");
+  // const [word, setWord] = useState<'bao'>("bao"); // 절대 변하지 않는다면 이렇게도 가능
+  const [word1, setWord1] = useState(() => {
+    return "bao";
+  });
   const [value, setValue] = useState("");
   const [result, setResult] = useState("");
   const inputEl = useRef<HTMLInputElement>(null);
@@ -33,7 +38,6 @@ const WordRelay: FC<P> = (props) => {
       const input = inputEl.current;
       if (word[word.length - 1] === value[0]) {
         setResult("딩동댕");
-        setWord(value);
         setValue("");
         if (input) {
           input.focus();
@@ -48,6 +52,21 @@ const WordRelay: FC<P> = (props) => {
     },
     [word, value]
   );
+
+  useEffect(() => {
+    // const finc = async () => {
+    //     await axios.post();
+    // }
+    // finc();
+    setWord((prev) => {
+      return prev + 2;
+    });
+    console.log("useEffect"); // 처음 호출
+
+    return () => {
+      console.log("Lifecycle cleanup"); // 끝날 떄 호출
+    };
+  }, []);
 
   const onChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setValue(e.currentTarget.value);

@@ -2873,3 +2873,91 @@ const Parent = () => {
   );
 };
 ```
+
+### useState, useEffect 타이핑
+
+```ts
+const [word, setWord] = useState<string>("bao");
+const [word, setWord] = useState<"bao">("bao"); // 절대 변하지 않는다면 이렇게도 가능
+
+function useState<S>(
+  initialState: S | (() => S)
+): [S, Dispatch<SetStateAction<S>>];
+```
+
+- `[S, Dispatch<SetStateAction<S>>]` 구조분해 `[word, setWord]`
+
+```ts
+type SetStateAction<S> = S | ((prevState: S) => S);
+type Dispatch<A> = (value: A) => void;
+
+Dispatch<SetStateAction<S>>
+type Dispatch<SetStateAction<S>> = (value: S | ((prevState: S) => S)) => void; 🟠
+
+setWord((prev) => {
+            return prev + 2;
+        });
+// const setWord: (value: React.SetStateAction<string>) => void
+
+// 동기처럼 만든다고 async await 붙이는 경우가 있음
+useEffect(async() => {
+await setWord((prev) => {
+            return prev + 2;
+        }); ❌❌❌❌❌
+},[])
+// await은 return 타입이 Promise인 것만 붙이기
+```
+
+- `setState`에서도 `value`나 `state` 또는 함수가 들어갈 수 있다.
+- `await`은 `return 타입`이 `Promise`인 것만 붙이기 🔥
+- `Promise`의 유무로 `await`을 붙인다.
+
+- `initialState`에 함수도 가능, `(() => S)`, `lazy initialization`이라 한다. 🟠
+  - `state`자리에 함수 가능
+  - `useEffect`로 `state`를 관리해도 되지만, `usestate`로 함수의 `return`값을 할당해주면 성능적으로 이득을 볼 수 있음.
+  - 복잡한 함수를 한 번만 호출을 하면서도 초기 값을 쓸 수 있게 하기 위함.
+
+```ts
+const [word1, setWord1] = useState(() => {
+  return 복잡한 함수();
+});
+```
+
+- `Ts`에서는 `useEffect` 안에 `()` 앞에 `async`를 붙이면 안되지만, `js`에서는 되긴 된다.
+
+```ts
+useEffect(async () => {
+  await setWord((prev) => {
+    return prev + 2;
+  });
+}, []);
+
+function useEffect(effect: EffectCallback, deps?: DependencyList): void;
+type EffectCallback = () => void | Destructor; // EffectCallback의 타입이 void🔥
+async의 타입'() => Promise<void>'
+
+type Destructor = () => void | { [UNDEFINED_VOID_ONLY]: never }; // Lifecycle cleanup
+```
+
+```ts
+useEffect(() => {
+  console.log("useEffect"); // 처음 호출
+
+  return () => {
+    console.log("Lifecycle cleanup"); // 끝날 떄 호출
+  };
+}, []);
+```
+
+- `Ts`에서는 `useEffect`의 타입이 고정되어 있기 떄문. `async`함수의 `return`은 무조건 `Promise<void>`지만, `useEffect`는 `void` 🟠🟠
+
+```ts
+useEffect(() => {
+  const finc = async () => {
+    await axios.post();
+  };
+  finc();
+}, []);
+```
+
+- 이런식으로는 가능하다
