@@ -2961,3 +2961,58 @@ useEffect(() => {
 ```
 
 - 이런식으로는 가능하다
+
+### 브랜딩 기법
+
+```ts
+type Destructor = () => void | { [UNDEFINED_VOID_ONLY]: never };
+
+declare const UNDEFINED_VOID_ONLY: unique symbol;
+```
+
+- `unique symbol`은 `Symbol()`을 타이핑하는 방법
+- `npmjs.com`의 `@types/react`에서 [Details](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react.) 부분에 과거부터 현 버전까지의 `index.d.ts`가 존재
+- 코드의 옆 부분에 `...`을 클릭해 `View git blame`키워드를 통해 `openSource` 기여한 이유에 대해서 나옴.
+- `Destructor`에 관한 부분에서 `UNDEFINED_VOID_ONLY` 부분이 과거의 어떤 이유 떄문에 바뀌었는지 확인이 가능하다.
+- `브랜딩 기법`에 관한 [얘기](https://github.com/DefinitelyTyped/DefinitelyTyped/commit/fd8868d42a5256356859bc2a72664736a00c0d62)가 나오는데
+
+```ts
+const usd = 10;
+const eur = 10;
+type Euro = number;
+
+function euroToUsd(euro: Euro): number {
+  return euro * 1.18;
+}
+console.log(`USD: ${euroToUsd(eur)}`);
+
+euroToUsd(krw); // 모든 type의 money가 가능
+```
+
+- 인수에 숫자가 `euro`라는 타입 이외의 타입이 들어가는 것을 막지 못함
+- `type Euro = number;`이기에 모든 숫자가 인자로 들어올 수 있다.
+
+```ts
+type Brand<K, T> = K & { __brand: T };
+
+type EUR = Brand<number, "EUR">;
+type USD = Brand<number, "USD">;
+type KRW = Brand<number, "KRW">;
+
+const usd = 10 as USD;
+const eur = 10 as EUR;
+const krw = 10 as KRW;
+
+function euroToUsd(euro: EUR): number {
+  return euro * 1.18;
+}
+console.log(`USD: ${euroToUsd(eur)}`);
+
+euroToUsd(eur); // EUR 타입만 사용 가능🟠
+```
+
+- 그래서 `브랜딩 기법`을 사용하면실제로 존재하지 않는 가상의 속성을 만들어 낼 수 있다.
+- `as`를 사용하는 것은 비추천되지만, 가상의 타입을 사용하기에 `as`를 사용(강제 타입 변환)
+- 결국엔 `EUR`타입만 사용 가능, `number`라는 원시값을 사용하면서 객체처럼 표현하면서 새로운 타입을 만들어낼 수 있음
+- 정말 말 그대로 원시값을 `브랜딩` 시키는 것이다. 🔥
+- 남의 타입을 공부하는 것이 많이 도움된다.
