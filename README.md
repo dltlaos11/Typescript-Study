@@ -3016,3 +3016,173 @@ euroToUsd(eur); // EUR 타입만 사용 가능🟠
 - 결국엔 `EUR`타입만 사용 가능, `number`라는 원시값을 사용하면서 객체처럼 표현하면서 새로운 타입을 만들어낼 수 있음
 - 정말 말 그대로 원시값을 `브랜딩` 시키는 것이다. 🔥
 - 남의 타입을 공부하는 것이 많이 도움된다.
+
+### useCallback, useRef 타이핑
+
+```ts
+const deps: readonly any[] = []; // ReadonlyArray
+
+useEffect(() => {
+  setWord((prev) => {
+    return prev + 2;
+  });
+  console.log("useEffect");
+
+  return () => {
+    console.log("Lifecycle cleanup");
+  };
+}, deps);
+```
+
+- `useEffect`의 `depth`를 `reandonly array[]` 표현 가능
+
+```ts
+function useEffect(effect: EffectCallback, deps?: DependencyList): void;
+// NOTE: this does not accept strings, but this will have to be fixed by removing strings from type Ref<T>
+/**
+ * `useImperativeHandle` customizes the instance value that is exposed to parent components when using
+ * `ref`. As always, imperative code using refs should be avoided in most cases.
+ *
+ * `useImperativeHandle` should be used with `React.forwardRef`.
+ *
+ * @version 16.8.0
+ * @see {@link https://react.dev/reference/react/useImperativeHandle}
+ */
+type DependencyList = readonly unknown[];
+
+interface ReadonlyArray<T> {
+    /**
+     * Gets the length of the array. This is a number one higher than the highest element defined in an array.
+     */
+    readonly length: number;
+    ...
+}
+```
+
+- 고정된 `length`
+
+<br>::useCallback</br>
+
+```ts
+// 17ver
+function useCallback<T extends (...args: any[]) => any>(
+  callback: T,
+  deps: DependencyList
+): T;
+// 18ver
+function useCallback<T extends Function>(callback: T, deps: DependencyList): T;
+/**
+ * `useMemo` will only recompute the memoized value when one of the `deps` has changed.
+ *
+ * @version 16.8.0
+ * @see {@link https://react.dev/reference/react/useMemo}
+ */
+```
+
+- `17ver`에서는 매개변수와 리턴값의타입이 any로 타이핑이 되어 있음
+- `18ver`에서는 매개변수와 리턴값의 타이핑이 안되어있다.
+  - 직접 매개변수에 대한 타이핑을 해줘야🔥
+
+```ts
+import React, {
+  useState,
+  useCallback,
+  useRef,
+  FunctionComponent,
+  ReactElement,
+  FC,
+  ReactNode,
+  useEffect,
+  FormEvent,
+} from "react";
+
+  const onSubmitForm = useCallback<(e: FormEvent | React.FormEvent<HTMLFormElement>) => void>(
+    (e) => {
+      e.preventDefault();
+    }
+    ...
+  )
+
+  interface FormEvent<T = Element> extends SyntheticEvent<T> {
+}
+```
+
+- `FormEvent`는 import 필요 `React.FormEvent` 불필요
+
+```ts
+interface MouseEvent extends UIEvent {
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/MouseEvent/altKey) */
+}
+
+interface MouseEvent<T = Element, E = NativeMouseEvent> extends UIEvent<T, E> {
+  altKey: boolean;
+  button: number;
+  buttons: number;
+  clientX: number;
+  clientY: number;
+  ctrlKey: boolean;
+  ...
+}
+
+import React, {
+  MouseEvent,
+} from "react";
+
+const onClick = useCallback((e: MouseEvent<HTMLButtonElement>) => {}, []);
+```
+
+- `React`가 아닌 곳에서 `MouseEvent`도 존재하기에 `import`를 잘 명시해줘야
+
+```ts
+const onChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  setValue(e.currentTarget.value);
+}, []);
+
+return (
+  <>
+    <div>{word}</div>
+    <form onSubmit={onSubmitForm}>
+      <input ref={inputEl} value={value} onChange={onChange} />
+      ...
+)
+```
+
+<br>::useRef</br>
+
+```ts
+const inputEl = useRef<HTMLInputElement>(null);
+return (
+  <>
+    <div>{word}</div>
+      <form onSubmit={onSubmitForm}>
+      <input ref={inputEl} value={value} onChange={onChange} />
+    )
+
+const inputEl = useRef<HTMLInputElement>(null); // RefObject
+const HeadInputEl = useRef<HTMLHeadElement>(document.querySelector('head')); // RefObject
+const mutaRef = useRef<number>(0); // MutableRefObject
+```
+
+- `Ref`가 처음에는 null이였다가 `ref`에 값을 할당해주면서 `input.ref.current`가 `input`태그가 됨
+- `useRef`에는 3가지 타입이 있다.
+  - `MutableRefObject`는 값을 컴포넌트에서 저장하고 있는 용도, but 리렌더링 ❌
+    - `function useRef<T>(initialValue: T): MutableRefObject<T>;`
+  - `RefObject`는 위와 같이 태그와 연결하는 용도
+    - `function useRef<T>(initialValue: T | null): RefObject<T>;`, 제네렉과 인자에 같은 타입이 들어가면 ❌ -> `MutableRefObject`
+      - `function useRef<T = undefined>(): MutableRefObject<T | undefined>;` 요놈..
+      - 같은 타입이 되긴한다 하지만 타입에 `| null`이 포함 되어 있어야 함.
+      - `ParentNode.querySelector<"head">(selectors: "head"): HTMLHeadElement | null`
+    - `const inputEl = useRef<HTMLInputElement>(null);`, 제네릭과 인자로 `null`이 필요 🟠
+
+::non-null assertion operator
+
+```ts
+const HeadInputEl = useRef<HTMLHeadElement>(document.querySelector("head")); // RefObject
+const MutaHeadInputEl = useRef<HTMLHeadElement>(
+  document.querySelector("head")!
+); // MutableRefObject
+```
+
+- `document.querySelector("head")`뒤에 `!`을 붙이면 `null` 또는 `undefined`가 아니라는 것을 의미
+  - `non-null assertion operator`으로 인해 `ts`가 `MutableRefObject`로 타입 추론
+- `js`에서 `!document.querySelector("head")`는 결과가 `null` 또는 `undefined`일 경우 true를 반환

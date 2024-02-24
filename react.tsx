@@ -10,6 +10,8 @@ import React, {
   FC,
   ReactNode,
   useEffect,
+  FormEvent,
+  MouseEvent,
 } from "react";
 // JSX.Element는 import할 필요 ❌
 // import { useState, useCallback, useRef } from "react";
@@ -32,7 +34,18 @@ const WordRelay: FC<P> = (props) => {
   const [result, setResult] = useState("");
   const inputEl = useRef<HTMLInputElement>(null);
 
-  const onSubmitForm = useCallback<(e: React.FormEvent) => void>(
+  const HeadInputEl = useRef<HTMLHeadElement>(document.querySelector("head"));
+  const MutaHeadInputEl = useRef<HTMLHeadElement>(
+    document.querySelector("head")!
+  );
+
+  const mutaRef = useRef<number>(0);
+
+  const onClick = useCallback((e: MouseEvent<HTMLButtonElement>) => {}, []);
+
+  const onSubmitForm = useCallback<
+    (e: React.FormEvent<HTMLFormElement>) => void
+  >(
     (e) => {
       e.preventDefault();
       const input = inputEl.current;
@@ -53,6 +66,7 @@ const WordRelay: FC<P> = (props) => {
     [word, value]
   );
 
+  const deps: readonly any[] = [];
   useEffect(() => {
     // const finc = async () => {
     //     await axios.post();
@@ -66,7 +80,7 @@ const WordRelay: FC<P> = (props) => {
     return () => {
       console.log("Lifecycle cleanup"); // 끝날 떄 호출
     };
-  }, []);
+  }, deps);
 
   const onChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setValue(e.currentTarget.value);
