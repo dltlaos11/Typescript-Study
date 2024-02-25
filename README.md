@@ -3186,3 +3186,118 @@ const MutaHeadInputEl = useRef<HTMLHeadElement>(
 - `document.querySelector("head")`뒤에 `!`을 붙이면 `null` 또는 `undefined`가 아니라는 것을 의미
   - `non-null assertion operator`으로 인해 `ts`가 `MutableRefObject`로 타입 추론
 - `js`에서 `!document.querySelector("head")`는 결과가 `null` 또는 `undefined`일 경우 true를 반환
+
+### 클래스 컴포넌트 타이핑
+
+잠시.. `UMD`모듈 시슽에 대한 정보를 기입한다..
+
+- `UMD` 모듈은 특정 모듈 시스템에 종속되지 않고,
+- 여러 가지 모듈 환경에 따라 유동적으로 import 할 수 있다.
+- 이는 `UMD`가 런타임에서 사용되는 모듈 시스템을 자동으로 감지하고, 해당 모듈 시스템에 맞게 동작하기 때문
+- 그러나 최근에는 `ES` 모듈이 점점 더 널리 사용되고 있으며, 필요에 따라 `ES` 모듈을 `UMD`나 다른 모듈 형식으로 변환할 수 있는 도구들이 많이 사용되고 있다. 이는 `ES` 모듈이 `정적 분석`과 `트리 쉐이킹 (tree shaking)` 등의 최적화 기법을 지원하기 때문
+
+::Babel
+
+- `Js`컴파일러, 최신 `ECMAScript`(`ES6` 이상) 문법을 브라우저에서 호환 가능한 `ES5` 문법으로 변환하는 데 주로 사용.
+- `Babel`을 사용하여 `ES6+` 코드를 `ES5`로 변환
+
+::Rollup
+
+- 반면에 `Rollup`은 `JavaScript` 모듈 번들러로, 여러 개의 `JavaScript` 파일을 하나 또는 몇 개의 번들 파일로 결합하는 데 사용
+  - 번들 파일은 여러 `JavaScript` 파일을 하나 또는 몇 개의 파일로 결합한 것
+  - 네트워크 요청을 줄이고, 코드를 최적화하고, 의존성을 관리
+- `Rollup`을 사용하여 여러 `JavaScript` 파일을 하나의 번들로 결합하기도
+- 트리쉐이킹
+- `ssr`에서는 html,css,번들 파일을 브라우저가 다운로드, `js`엔진은 이를 통해 웹페이지를 렌더링
+- `ssr`에서는 `hydration`으로 `TTV` 등이 생기며
+- `ccr`은 완전한 페이지 렌더링
+
+이제 클래스 컴포넌트 타이핑으로 넘어가자..
+
+- `React.FormEvent`는 `xx.xx`같은 형식은 `nameSpace`나 `interface` 같은게 있다.
+  - `namespace`는 `script` 태그로 불러올 때 자주 사용
+  - 서로 다른 라이브러리간 충돌을 방지하기 위해 사용 🔥
+  - `namespace`도 `interface`처럼 겹치면 합쳐진다.
+  - `xxxx.xxx` 보단 `import`형식이 나음
+
+React.index.d.ts
+
+```ts
+  interface Component<P = {}, S = {}, SS = any> extends ComponentLifecycle<P, S, SS> {}
+  class Component<P, S> {
+    ...
+  }
+
+  interface P {
+    name: string,
+    title: string
+  }
+
+  interface S {
+      word: string,
+      value: string,
+      result: string
+  }
+
+  class WordRelay extends React.Component<P, S> {
+    ...
+  }
+```
+
+- `ClassComponent`에서도 제네릭 부분에 `Props`와 `State`를 받음.
+- 제네릭 부분에 기본값이 있기에 없어도 되지만 정확한 타입추론을 위해 사용하는것이 좋다
+- `Utility Type`, `Omit`, `Pick` 등이 존재
+
+```ts
+// Pick은 Profile에서 'name'과 'age'만 가져온다는 의미
+const newBao3: Pick<Profile, "name" | "age"> = {
+  name: "newBao",
+  age: 29,
+};
+
+setState<K extends keyof S>(
+    state: ((prevState: Readonly<S>, props: Readonly<P>) => Pick<S, K> | S | null) | (Pick<S, K> | S | null),
+    callback?: () => void,
+): void;
+// State에서 Key를 뽑는다는 것은 state의 전체가 아닌 일부도 바꿀수 있게 하기 위함
+
+this.setState({
+  result: "땡",
+  value: "",
+});
+```
+
+- `(Pick<S, K> | S | null)`
+  - 전체를 바꾸면 `S`
+  - 하나이상 전체를 바꾸지 않을 때는 `Pick<S, K>`
+  - `null`도 가능한가보다..!
+
+```ts
+  class Component<P, S> {
+    ...
+    render(): ReactNode;
+    ...
+  }
+  interface FunctionComponent<P = {}> {
+    (props: P, context?: any): ReactNode;
+  }
+
+  render() {
+    return (
+      <>
+        <div>{this.state.word}</div>
+        <form onSubmit={this.onSubmitForm}>
+          <input
+            ref={this.onRefInput}
+            value={this.state.value}
+            onChange={this.onChangeInput}
+          />
+          <button>클릭!!!</button>
+        </form>
+        <div>{this.state.result}</div>
+      </>
+    );
+  }
+```
+
+- 함수, 클래스 컴포넌트 둘다 `ReactNode`를 `render`
