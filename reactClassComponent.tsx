@@ -1,5 +1,15 @@
 import React, { Component } from "react";
 
+type A = {
+  aa: string;
+  bb(x: number): string;
+}["bb"];
+
+interface J {
+  a(): void;
+  b: () => void;
+}
+
 interface P {
   name: string;
   title: string;

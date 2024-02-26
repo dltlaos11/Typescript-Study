@@ -3245,6 +3245,7 @@ React.index.d.ts
 ```
 
 - `ClassComponent`에서도 제네릭 부분에 `Props`와 `State`를 받음.
+  - `SS`는 `snapshot`이라 함
 - 제네릭 부분에 기본값이 있기에 없어도 되지만 정확한 타입추론을 위해 사용하는것이 좋다
 - `Utility Type`, `Omit`, `Pick` 등이 존재
 
@@ -3301,3 +3302,161 @@ this.setState({
 ```
 
 - 함수, 클래스 컴포넌트 둘다 `ReactNode`를 `render`
+
+### React 타입 분석 마무리..
+
+```ts
+  input: HTMLInputElement | null = null; // this.input을 생성
+  onRefInput = (c: HTMLInputElement) => {
+    this.input = c;
+  };
+
+  render() {
+      return (
+    <form onSubmit={this.onSubmitForm}>
+      <input
+        ref={this.onRefInput}
+        value={this.state.value}
+        onChange={this.onChangeInput}
+      />
+      <button>클릭!!!</button>
+    </form>
+      )
+    }
+```
+
+- `ClassComponent`에서 `Ref`사용법,
+- `HTMLInputElement | nul` -> `RefObject`
+
+```ts
+interface ClassAttributes<T> extends Attributes {
+  /**
+   * Allows getting a ref to the component instance.
+   * Once the component unmounts, React will set `ref.current` to `null`
+   * (or call the ref with `null` if you passed a callback ref).
+   *
+   * @see {@link https://react.dev/learn/referencing-values-with-refs#refs-and-the-dom React Docs}
+   */
+  ref?: LegacyRef<T> | undefined;
+}
+
+type LegacyRef<T> = string | Ref<T>;
+
+type RefCallback<T> = {
+  bivarianceHack(instance: T | null): void;
+}["bivarianceHack"];
+
+type React.RefCallback<T> = (instance: T | null) => void // ??
+
+type A = {
+    aa: string;
+    bb(x: number): string;
+}['bb'];
+
+type A = (x: number) => string // 😯
+```
+
+- 객체를 만들고, `객체 안에서 메서드의 타입을 바로 꺼내 쓰는 문법`
+
+```ts
+interface J {
+  a(): void;
+  b: () => void;
+}
+```
+
+- `TS`는 완벽한 언어가 아닌기에 끼워맞추기식 타입이 존재한다.
+- 위 코드도 쓰임이 다르다.
+- `메서드 시그니처(Method Signature)`: `a(): void;`는 메서드 시그니처.
+  - 이는 J 인터페이스의 구현체가 a라는 이름의 `메서드`를 가져야 하며, 이 메서드는 아무런 인자를 받지 않고 반환값도 없어야 함을 의미.
+- `함수 타입(Function Type)`: `b: () => void;`는 함수 타입.
+  - 이는 J 인터페이스의 구현체가 b라는 이름의 `속성`을 가져야 하며, 이 속성의 값은 아무런 인자를 받지 않고 반환값도 없는 함수여야 함을 의미.
+- 이 둘의 주요 차이점은 `this 키워드의 바인딩 방식`🟠
+
+```ts
+interface J {
+  name: string;
+  a(): void;
+  b: () => void;
+}
+
+class MyClass implements J {
+  name = "MyClass";
+
+  a() {
+    console.log("This is method a from " + this.name);
+  }
+
+  b = () => {
+    console.log("This is function b from " + this.name);
+  };
+}
+
+let myObject: J = new MyClass();
+myObject.a(); // prints "This is method a from MyClass"
+myObject.b(); // prints "This is function b from MyClass"
+
+let anotherObject = { name: "AnotherObject", a: myObject.a, b: myObject.b };
+anotherObject.a(); // prints "This is method a from undefined"
+anotherObject.b(); // prints "This is function b from MyClass"
+```
+
+- a 메서드와 b 함수는 동일한 코드를 실행하지만, `this` 키워드가 참조하는 객체가 다르다.
+- a `메서드`는 `this`가 `메서드를 호출한 객체를 참조`하므로 `anotherObject.a()`를 호출하면 `this.name`은 `undefined`가 됨.
+  - <mark> `메서드는 호출한 객체를 참조`
+- 반면에 b 함수는 this가 함수가 정의된 범위(`렉시컬 범위`)를 참조하므로 `anotherObject.b()`를 호출해도 `this.name`은 여전히 `'MyClass'`
+  - <mark>함수는 정의된 범위(`렉시컬 범위`)를 참조
+- `a: myObject.a()`와 `b: myObject.b()`는 `myObject`의 a 메서드와 b 함수를 `호출`🔥하는 것을 의미.
+  - 즉, 이렇게 하면 a와 b는 각각 a 메서드와 b 함수의 `결과값`이 됨.
+  - `호출 -> 결과값`🟠
+- 반면에 `a: myObject.a`와 `b: myObject.b`는 `myObject`의 a 메서드와 b 함수를 `참조`🔥하는 것을 의미.
+  - 즉, 이렇게 하면 a와 b는 각각 a 메서드와 b `함수 자체`가 됩니다.
+  - `참조 -> 함수 자체`🟠
+
+::참고로 `useRef` 다른 컴포넌트에 접근하려면 `forwardRef`를 사용해야 함. 훅으로는 `useImperativeHandle`이 있다.
+
+- 둘 다 컴포넌트 간에 참조(`ref`)를 전달하고 사용하는 데 사용.
+  - `forwardRef`: `forwardRef`는 부모 컴포넌트에서 `자식 컴포넌트의 ref`에 접근할 수 있게 한다.
+    - 즉, 부모 컴포넌트가 `자식 컴포넌트의 DOM 노드`나 `인스턴스`에 `직접 접근`할 수 있게 해준다.
+    - 이는 주로 `자식 컴포넌트의 DOM 노드를 조작`하거나, `자식 컴포넌트의 메서드`를 `호출`하는 데 사용.
+  - `useImperativeHandle`: `useImperativeHandle`은 자식 컴포넌트가 `부모 컴포넌트에 노출하는 인스턴스 값`을 `사용자화`.
+    - 즉, `자식 컴포넌트가` 부모 컴포넌트에게 `노출하는 속성이나 메서드를 정의할 수 있다`
+    - 이는 주로 부모 컴포넌트가 `자식 컴포넌트의 특정 메서드를 호출`하거나, `자식 컴포넌트의 내부 상태를 가져오는 데 사용`
+- 따라서 `forwardRef`는 `부모-자식 컴포넌트 간의 참조를 전달`하는 데 사용되며,
+- `useImperativeHandle`은 이 참조를 통해 부모 컴포넌트가 접근할 수 있는 `자식 컴포넌트의 속성이나 메서드를 정의`하는 데 사용.
+
+```ts
+import React, { forwardRef, useImperativeHandle, useRef } from "react";
+
+const ChildComponent = forwardRef((props, ref) => {
+  const inputRef = useRef();
+
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current.focus();
+    },
+  }));
+
+  return <input ref={inputRef} />;
+});
+
+function ParentComponent() {
+  const childRef = useRef();
+
+  const onClick = () => {
+    childRef.current.focus();
+  };
+
+  return (
+    <>
+      <ChildComponent ref={childRef} />
+      <button onClick={onClick}>Focus the input</button>
+    </>
+  );
+}
+```
+
+- `ChildComponent`는 `forwardRef`를 사용하여 부모 컴포넌트로부터 `ref`를 받는다.
+- `useImperativeHandle`을 사용하여 이 `ref`를 통해 `부모 컴포넌트가 접근할 수 있는 focus 메서드를 정의`
+- `ParentComponent`에서 버튼을 클릭하면 `ChildComponent`의 입력 필드에 `포커스`
+- `useImperativeHandle`에서 사용자화해서 만든 `focus`랑 `inputRef.current`의 속성인 `focus`은 `input`의 내장 메소드로 다름🔥
