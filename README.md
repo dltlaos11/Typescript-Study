@@ -3460,3 +3460,256 @@ function ParentComponent() {
 - `useImperativeHandle`을 사용하여 이 `ref`를 통해 `부모 컴포넌트가 접근할 수 있는 focus 메서드를 정의`
 - `ParentComponent`에서 버튼을 클릭하면 `ChildComponent`의 입력 필드에 `포커스`
 - `useImperativeHandle`에서 사용자화해서 만든 `focus`랑 `inputRef.current`의 속성인 `focus`은 `input`의 내장 메소드로 다름🔥
+
+## Redux 타입 분석
+
+- 액션이 디스패치되면 redcuer에 정의된 룰에 따라 state를 변화
+- `Ts`가 적용도어 있기에(`Not DT`) 다른 별도의 파일(`@types/xxxx`) 필요 ❌
+  - 별도의 파일을 받는 경우(`DT`) `@types/`파일의 버전도 마이너 버전 이상은 맞추는게 대부분, `react17 -> @types/react@17`
+- `export = ` or `export default`가 없다
+  - 이런 경우는 `import {createStore, compose, legacy_createStore} from 'redux';` 이런 식의 코드가 대부분
+  - `Default`가 아니라 `Named Export`🔥로 되어 있기에 위와 같은 방식으로 `import`하는게 대부분
+
+```ts
+declare function legacy_createStore<
+  S,
+  A extends Action,
+  Ext extends {} = {},
+  StateExt extends {} = {},
+  PreloadedState = S
+>(
+  reducer: Reducer<S, A, PreloadedState>,
+  preloadedState?: PreloadedState | undefined,
+  enhancer?: StoreEnhancer<Ext, StateExt>
+): Store<S, A, UnknownIfNonSpecific<StateExt>> & Ext;
+```
+
+- 선언한 이름과 실제 사용하는 이름이 동일
+- `Named Export`라 부름
+  - 리덕스에는 `export default`는 없고 오직 네임드 익스포트만 존재🟠
+- `@deprecated`를 통해 주석처리 가능(마우스를 올렸을 떄 확인 가능)
+
+```ts
+type Reducer<S = any, A extends Action = UnknownAction, PreloadedState = S> = (
+  state: S | PreloadedState | undefined,
+  action: A
+) => S;
+```
+
+- `Reducer`는 상태를 바꾸는 규칙
+  - 리듀서는 함수고 매개변수(`state, action`)이 있고 리턴값 `S`가 존재
+
+```ts
+declare function combineReducers<M>(
+  reducers: M
+): M[keyof M] extends Reducer<any, any, any> | undefined
+  ? Reducer<
+      StateFromReducersMapObject<M>,
+      ActionFromReducersMapObject<M>,
+      Partial<PreloadedStateShapeFromReducersMapObject<M>>
+    >
+  : never;
+```
+
+```ts
+declare function combineReducers<M>(
+  reducers: M
+): M[keyof M] extends Reducer<any, any, any> | undefined
+  ? Reducer<
+      StateFromReducersMapObject<M>,
+      ActionFromReducersMapObject<M>,
+      Partial<PreloadedStateShapeFromReducersMapObject<M>>
+    >
+  : never;
+```
+
+- 중요한 부분은 매개변수, 제네릭이 헷갈리면 지우면서 `함수(매개변수): 리턴값`꼴로 나타내기🟠
+  - 파악하고 되돌리기
+
+```ts
+type ReducersMapObject<
+  S = any,
+  A extends Action = UnknownAction,
+  PreloadedState = S
+> = keyof PreloadedState extends keyof S
+  ? {
+      // K는 S, S는 state🟠, Reducer여야 함🟠
+      [K in keyof S]: Reducer<
+        S[K],
+        A,
+        K extends keyof PreloadedState ? PreloadedState[K] : never
+      >;
+    }
+  : never;
+
+type StateFromReducersMapObject<M> = M[keyof M] extends
+  | Reducer<any, any, any>
+  | undefined
+  ? {
+      [P in keyof M]: M[P] extends Reducer<infer S, any, any> ? S : never;
+    }
+  : never;
+/**
+ * Infer reducer union type from a `ReducersMapObject`.
+ *
+ * @template M Object map of reducers as provided to `combineReducers(map: M)`.
+ */
+type ReducerFromReducersMapObject<M> = M[keyof M] extends
+  | Reducer<any, any, any>
+  | undefined
+  ? M[keyof M]
+  : never;
+/**
+ * Infer action type from a reducer function.
+ *
+ * @template R Type of reducer.
+ */
+type ActionFromReducer<R> = R extends Reducer<any, infer A, any> ? A : never;
+/**
+ * Infer action union type from a `ReducersMapObject`.
+ *
+ * @template M Object map of reducers as provided to `combineReducers(map: M)`.
+ */
+type ActionFromReducersMapObject<M> = ActionFromReducer<
+  ReducerFromReducersMapObject<M>
+>;
+/**
+ * Infer a combined preloaded state shape from a `ReducersMapObject`.
+ *
+ * @template M Object map of reducers as provided to `combineReducers(map: M)`.
+ */
+type PreloadedStateShapeFromReducersMapObject<M> = M[keyof M] extends
+  | Reducer<any, any, any>
+  | undefined
+  ? {
+      [P in keyof M]: M[P] extends (
+        inputState: infer InputState,
+        action: UnknownAction
+      ) => any
+        ? InputState
+        : never;
+    }
+  : never;
+```
+
+- `combineReducers`의 매개변수에는 `Reducer`가 들어감
+- `4ver`에서는 `ReducersMapObject` 3가지로 오버로딩이 되었지만 `reducer: ReducersMapObject<S, A>`
+- `5ver`에서는 `ReducersMapObject`로부터 리듀서가 `action`, `reducer`를 추론하는 `ReducerFromReducersMapObject`, `StateFromReducersMapObject` 등을 상속받음
+
+```ts
+...
+
+  [K in keyof S]: Reducer<
+    S[K],
+    A,
+    K extends keyof PreloadedState ? PreloadedState[K] : never
+  >;
+
+...
+```
+
+- K는 S, S는 `state`🟠, `Reducer`여야 함🟠
+- `initialState`는 `S`, 그 안에 `user`, `posts`는 `keyof S` 그래서 `combineReducers`안에 `K`도 `user`, `posts`여야
+
+```ts
+const reducer = combineReducers({
+  user: (state: any, action: any) => {},
+  posts: (state: any, action: any) => {},
+});
+```
+
+```ts
+const initialState = {
+  user: {
+    // S[K] -> Reducer의 state여야 함, 근데 Reducer의 리턴값이 state
+    isLoggingIn: false,
+    data: null,
+  },
+  posts: [],
+};
+```
+
+- 그러므로 아래와 같이 `Reducer`를 만들어야 함
+
+```ts
+const reducer = combineReducers({
+  //   user: (state: any, action: any) => {},
+  //   posts: (state: any, action: any) => {},
+  user: (state: any, action: any) => {
+    return state;
+  },
+  posts: (state: any, action: any) => {
+    return state;
+  },
+});
+```
+
+- 고로 `ReducersMapObject`에서 아래 🔥부분이 중요
+
+```ts
+type ReducersMapObject<
+  S = any,
+  A extends Action = UnknownAction,
+  PreloadedState = S
+> = keyof PreloadedState extends keyof S
+  ? {
+      [K in keyof S]: Reducer<
+        // 🔥
+        S[K], // 🔥
+        A,
+        K extends keyof PreloadedState ? PreloadedState[K] : never
+      >;
+    }
+  : never;
+```
+
+::`createStore` 타입분석
+
+```ts
+const store = createStore(reducer, initialState);
+
+declare function legacy_createStore<
+  S,
+  A extends Action,
+  Ext extends {} = {},
+  StateExt extends {} = {},
+  PreloadedState = S
+>(
+  reducer: Reducer<S, A, PreloadedState>,
+  preloadedState?: PreloadedState | undefined,
+  enhancer?: StoreEnhancer<Ext, StateExt>
+): Store<S, A, UnknownIfNonSpecific<StateExt>> & Ext;
+```
+
+- 매개변수와 리턴 타입 중시하기
+- `preloadedState`는 `initialState`
+
+```ts
+interface Store<
+  S = any,
+  A extends Action = UnknownAction,
+  StateExt extends unknown = unknown
+> {
+  /**
+   * @param action
+   * @returns For convenience, the same action object you dispatched.
+   */
+  dispatch: Dispatch<A>;
+  /**
+   * Reads the state tree managed by the store.
+   *
+   * @returns The current state tree of your application.
+   */
+  getState(): S & StateExt;
+}
+
+interface Dispatch<A extends Action = UnknownAction> {
+  <T extends A>(action: T, ...extraArgs: any[]): T;
+}
+```
+
+- `AnyAction`에서 `UnknownAction`으로 바뀜(4 <-> 5)
+- `store.dispatch({type: 'LOGIN', data: {nickname: 'BAOJYJ', password: '1234'}});`
+- `UnknownAction`이기에 `dispatch`할 떄 `type` 뿐만아니라 `data`도 삽입 가능
+- `interface`는 주로 객체로 많이 사용되지만 `Dispatch`처럼 함수로 쓰이는 경우도 있다.🔥
+- `store.getState()`, `state`의 다음 `data`를 의미
