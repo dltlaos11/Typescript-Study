@@ -3713,3 +3713,160 @@ interface Dispatch<A extends Action = UnknownAction> {
 - `UnknownAction`이기에 `dispatch`할 떄 `type` 뿐만아니라 `data`도 삽입 가능
 - `interface`는 주로 객체로 많이 사용되지만 `Dispatch`처럼 함수로 쓰이는 경우도 있다.🔥
 - `store.getState()`, `state`의 다음 `data`를 의미
+
+### action, reducer 타이핑하기
+
+```ts
+const initialState = {
+  isLoggedIn: false,
+  data: null,
+}
+const useReducer: Reducer<typeof initialState, LoginSuccessAction | LogoutAction> =
+  (prevState = initialState, action) => {
+  switch (action.type) {
+    ...
+  }
+}
+// 위 방식이 제일 좋지만, data: null(뭐가 올지 모르는)같은 경우에는 직접 interface를 작성해도 된다.🟠
+interface InitialState {
+  isLoggedIn: boolean,
+  data: LoginSuccessData | null;
+}
+const useReducer: Reducer<InitialState, LoginSuccessAction | LogoutAction> =
+  (prevState = initialState, action) => {
+  switch (action.type) {
+    ...
+  }
+}
+
+
+const postReducer: Reducer<AddPostData[], AddPostAction> =
+  (prevState = initialState, action) => {
+  switch (action.type) {
+    ...
+  }
+}
+// or
+const postReducer: Reducer = (prevState: AddPostData[] = initialState, action) => {
+  switch (action.type) {
+    ...
+  }
+}
+```
+
+- 매개변수 자리에는 변수만, 제네릭 자리에 타입 적는것이 보기 좋아보인다.
+  - `<initialState 타입, action 타입>`
+- 도메인별로(`post`, `user`) `actions`, `reducers`로 파일 분리 해서 만들기.
+- interface `InitialState`와 변수 `initialState`를 따로 명시하기 🟠
+
+### thunk 미들웨어 타이핑
+
+```ts
+interface Middleware<
+  _DispatchExt = {}, // TODO: see if this can be used in type definition somehow (can't be removed, as is used to get final dispatch type)
+  S = any,
+  D extends Dispatch = Dispatch
+> {
+  (api: MiddlewareAPI<D, S>): (
+    next: (action: unknown) => unknown
+  ) => (action: unknown) => unknown;
+}
+
+const firstMiddleware: Middleware = (store) => (next) => (action) => {
+  if (typeof action === "function") {
+    // 비동기
+    return action(store.dispatch, store.getState); // store의 dispatch, store의 getState
+  }
+  return next(action); // 동기
+  next(action);
+};
+```
+
+- 커링패턴 `store) => (next) => (action)`
+- `api`: store라 생각해도 무방
+  - `action(store.dispatch, store.getState )`가 가능하기 떄문
+- `next`: dispatch
+- `thunk`를 통해 `action`을 함수 꼴로 만들 수 있음. 비동기가 가능 🔥🔥
+  - 객체꼴도 여전히 받을 수 있음
+  - 원래 `action`은 객체꼴
+
+```ts
+import {Dispatch, AnyAction} from 'redux';
+
+export const type LogInRequestData = {nickname: string, password: string};
+
+
+export const logIn = (data: LogInRequestData) => {
+  // async action creator
+  return (dispatch: Dispatch<AnyAction>, getState: () => any) => {
+    // async action, 비동기 가능
+    dispatch(logInRequest(data));
+    try {
+      setTimeout(() => {
+        dispatch(
+          logInSuccess({
+            userId: 1,
+            nickname: "zerocho",
+          })
+        );
+      }, 2000);
+    } catch (e) {
+      dispatch(logInFailure(e));
+    }
+  };
+};
+
+const enhancer = applyMiddleware(firstMiddleware);
+
+const store = createStore(reducer, initialState, enhancer);
+```
+
+- `data`자리에 `type`지정해놓기
+- `ActionCreator`에도 매개변수 `data`와 `return` 타입 명시하기, 아래처럼
+
+```ts
+const logInRequest = (data: LogInRequestData): LogInRequestAction => {
+  return {
+    type: "LOG_IN_REQUEST",
+    data,
+  };
+};
+```
+
+- `Thunk`는 함수이므로, 객체꼴만 받는 `dispatch`에서 변환이 필요
+- `Thunk`를 `dispatch`하려면 `redux-thunk`설치 후
+
+```ts
+import { ThunkMiddleware } from "redux-thunk";
+
+const enhancer = applyMiddleware(firstMiddleware as ThunkMiddleware);
+
+store.dispatch; // redux-thunk의 ThunkDispatch로 오버로딩 🔥
+
+export interface ThunkDispatch<
+  State,
+  ExtraThunkArg,
+  BasicAction extends Action
+> {
+  // When the thunk middleware is added, `store.dispatch` now has three overloads (NOTE: the order here matters for correct behavior and is very fragile - do not reorder these!):
+
+  // 1) The specific thunk function overload
+  /** Accepts a thunk function, runs it, and returns whatever the thunk itself returns */
+  <ReturnType>(
+    thunkAction: ThunkAction<ReturnType, State, ExtraThunkArg, BasicAction>
+  ): ReturnType;
+
+  // 2) The base overload.
+  /** Accepts a standard action object, and returns that action object */
+  <Action extends BasicAction>(action: Action): Action;
+
+  // 3) A union of the other two overloads. This overload exists to work around a problem
+  //   with TS inference ( see https://github.com/microsoft/TypeScript/issues/14107 )
+  /** A union of the other two overloads for TS inference purposes */
+  <ReturnType, Action extends BasicAction>(
+    action: Action | ThunkAction<ReturnType, State, ExtraThunkArg, BasicAction>
+  ): Action | ReturnType;
+}
+```
+
+- 기존의 `dispatch`도 사용 가능한 상태로 오버로딩
