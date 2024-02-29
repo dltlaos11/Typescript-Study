@@ -3870,3 +3870,4 @@ export interface ThunkDispatch<
 ```
 
 - 기존의 `dispatch`도 사용 가능한 상태로 오버로딩
+- `react-redux`에서 `connect`는 `useDispatch, useSelector`로 쪼개짐 -> `hooks`의 등장

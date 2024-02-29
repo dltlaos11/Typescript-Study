@@ -42,4 +42,8 @@ store.dispatch({
   type: "LOGIN",
   data: { nickname: "BAOJYJ", password: "1234" },
 });
+
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
+
 store.getState(); // next state value
