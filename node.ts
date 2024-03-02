@@ -1,6 +1,9 @@
-import fs = require("fs");
-import http = require("http");
-import path = require("path");
+// import fs = require("fs");
+// import http = require("http");
+// import path = require("path");
+import fs = require("node:fs");
+import http = require("node:http");
+import path from "node:path";
 
 http
   .createServer((req, res) => {

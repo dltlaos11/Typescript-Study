@@ -3937,3 +3937,17 @@ export function cp(
 ```
 
 - fs모듈의 모든 걸 불러와서 그대로 다 `export`함을 의미
+
+- npm에서 일반인이 만든 패키지와 구별하기 위해서 아래와 같은 표기법으로(CommonJS import) 사용하는것을 권장
+
+```ts
+// import fs = require("fs");
+// import http = require("http");
+// import path = require("path");
+import fs = require("node:fs");
+import http = require("node:http");
+import path from "node:path";
+```
+
+- `import path from "node:path";` `esModuleInterop`때문에 이런 타이핑도 가능
+- `npx ts-node node.ts` js로 변환하면서 실행이 가능
