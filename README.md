@@ -3871,3 +3871,69 @@ export interface ThunkDispatch<
 
 - 기존의 `dispatch`도 사용 가능한 상태로 오버로딩
 - `react-redux`에서 `connect`는 `useDispatch, useSelector`로 쪼개짐 -> `hooks`의 등장
+
+## Node, Express 타입 분석
+
+### @types/node
+
+- `node`는 `js` 실행기(`runtime`)
+- `http`모듈에 `createServer`로 서버를 만드는 메서드가 존재
+- `listen(8080, () => ...)`, `8080`포트로 서버가 돌아게끔
+- `http`기반의 `express`프레임워크
+- `@types/node`는 `DT`파일, `package.json`이 없는 경우 `index.d.ts`확인
+  - `npm install --save @types/node`
+  ```ts
+  /// <reference lib="es2020" />
+  /// <reference lib="esnext.asynciterable" />
+  /// <reference lib="esnext.intl" />
+  /// <reference lib="esnext.bigint" />
+  ...
+  ```
+  - ts 기본 제공 라이브러리를 포함해서 타입 사용
+  ```ts
+  // Base definitions for all NodeJS modules that are not specific to any version of TypeScript:
+  /// <reference path="assert.d.ts" />
+  /// <reference path="assert/strict.d.ts" />
+  /// <reference path="globals.d.ts" />
+  /// <reference path="async_hooks.d.ts" />
+  /// <reference path="buffer.d.ts" />
+  ```
+  - 위에는 `import`와 동일하다고 봐도 무방
+
+```ts
+setTimeout(() => {
+  console.log("hello");
+}, 1000); // Node에서는 setTimeout의 return값이  NodeJS.Timeout으로 되어있음
+window.setTimeout(() => {}, 1000); // 브라우저에서는 setTimeout의 return값이 number로 되어있는데
+```
+
+- 브라우저에서는 setTimeout의 return값이 number로 되어있는데
+- Node에서는 setTimeout의 return값이 NodeJS.Timeout으로 되어있음
+
+```ts
+import fs = require("fs");
+
+declare module "fs" {
+    import * as stream from "node:stream";
+    ...
+}
+```
+
+- 타입 선언만 있고 구현이 없는 것을 `엠비언트(ambient)`라고 함
+  - `declare module ...`이것을 `앰비언트(ambient) 모듈`이라고 함
+  - 특정 모듈에 대한 타이핑을 함
+
+```ts
+declare module "node:fs" {
+  export * from "fs";
+}
+
+export function cp(
+  source: string | URL,
+  destination: string | URL,
+  opts: CopyOptions,
+  callback: (err: NodeJS.ErrnoException | null) => void
+): void; // 이런거
+```
+
+- fs모듈의 모든 걸 불러와서 그대로 다 `export`함을 의미
