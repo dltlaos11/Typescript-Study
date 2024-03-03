@@ -1,5 +1,5 @@
 import cookieParser from "cookie-parser";
-import express, {
+import exp, {
   Request,
   RequestHandler,
   ErrorRequestHandler,
@@ -10,11 +10,11 @@ import session from "express-session";
 import passport from "passport";
 import flash from "connect-flash";
 
-const app = express();
+const app = exp();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use("/", express.static("./public"));
+app.use(exp.json()); // Body Parser
+app.use(exp.urlencoded({ extended: false }));
+app.use("/", exp.static("./public"));
 app.use(cookieParser("SECRET"));
 app.use(
   session({
@@ -49,12 +49,19 @@ const middleware: RequestHandler<
   req.user?.zerocho;
 };
 app.get("/", middleware);
+// app.get("/", (req, res) => {
+
+// }, cors(), multer(), (req, res) => {
+
+// }, (req, res) => {
+
+// });
 
 const errorMiddleware: ErrorRequestHandler = (
   err: Error,
   req: Request,
-  res,
-  next: express.NextFunction
+  res: Express.Response, // 🔥
+  next: NextFunction
 ) => {
   console.log(err.status);
 };

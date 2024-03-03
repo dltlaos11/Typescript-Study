@@ -5,7 +5,7 @@ import fs = require("node:fs");
 import http = require("node:http");
 import path from "node:path";
 
-http
+const server = http
   .createServer((req, res) => {
     setTimeout(() => {
       console.log("hello");
@@ -20,3 +20,6 @@ http
   .listen(8080, () => {
     console.log("서버 시작됨");
   });
+
+exports = server;
+module.exports = server;

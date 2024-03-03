@@ -3951,3 +3951,525 @@ import path from "node:path";
 
 - `import path from "node:path";` `esModuleInterop`때문에 이런 타이핑도 가능
 - `npx ts-node node.ts` js로 변환하면서 실행이 가능
+
+### http, fs, path 모듈 타입 분석
+
+- 오버라이딩: 부모클래스의 메소드와 동일한 `시그니처(이름, 매개변수의 타입 및 개수)`를 가져야 한다. 다른 시그니처라면 오버로딩
+
+```ts
+http
+  .createServer((req, res) => {
+    setTimeout(() => {
+      console.log("hello");
+    }, 1000); // Node에서는 setTimeout의 return값이  NodeJS.Timeout으로 되어있음
+    window.setTimeout(() => {}, 1000); // 브라우저에서는 setTimeout의 return값이 number로 되어있는데
+
+    fs.readFile(path.join(__dirname, "index.html"), (err, data) => {
+      res.writeHead(200);
+      res.end(data);
+    });
+  })
+  .listen(8080, () => {
+    console.log("서버 시작됨");
+  });
+
+function createServer<
+  Request extends typeof IncomingMessage = typeof IncomingMessage,
+  Response extends typeof ServerResponse = typeof ServerResponse
+>(
+  requestListener?: RequestListener<Request, Response>
+): Server<Request, Response>;
+function createServer<
+  Request extends typeof IncomingMessage = typeof IncomingMessage,
+  Response extends typeof ServerResponse = typeof ServerResponse
+>(
+  options: ServerOptions<Request, Response>,
+  requestListener?: RequestListener<Request, Response>
+): Server<Request, Response>;
+```
+
+- `createServer`는 오버로딩 되어있는데 위에 있는 메서드를 사용중
+
+  ```ts
+  (req, res) => {
+    setTimeout(() => {
+      console.log("hello");
+    }, 1000); // Node에서는 setTimeout의 return값이  NodeJS.Timeout으로 되어있음
+    window.setTimeout(() => {}, 1000); // 브라우저에서는 setTimeout의 return값이 number로 되어있는데
+
+    fs.readFile(path.join(__dirname, "index.html"), (err, data) => {
+      res.writeHead(200);
+      res.end(data);
+    });
+  };
+  ```
+
+  - 위 코드가 하나의 인자를 의미
+
+```ts
+  function createServer<
+      Request extends typeof IncomingMessage = typeof IncomingMessage,
+      Response extends typeof ServerResponse = typeof ServerResponse,
+  >(requestListener?: RequestListener<Request, Response>): Server<Request, Response>;
+
+  class IncomingMessage extends stream.Readable {
+    ... // request
+  }
+
+  class ServerResponse<Request extends IncomingMessage = IncomingMessage> extends OutgoingMessage<Request> {
+    ...
+  }
+  class OutgoingMessage<Request extends IncomingMessage = IncomingMessage> extends stream.Writable {
+    ... // response
+  }
+```
+
+- 요청은 읽어들이는 `stream`, 응답은 `Writable stream`
+
+```ts
+declare module "http" {
+    import * as stream from "node:stream";
+    import { URL } from "node:url";
+    import { LookupOptions } from "node:dns";
+    ...
+}
+```
+
+- `Declare Module`하면 이 모듈에서 필요한 모듈을 불러올 수 있음. e.f.) `node:stream`
+  - `node`모듈은 앞에 `node`명시해주는 것을 권장
+
+```ts
+interface Dict<T> {
+  [key: string]: T | undefined;
+}
+
+interface ReadOnlyDict<T> {
+  readonly [key: string]: T | undefined;
+}
+```
+
+- `[key: string]: T | undefined;`, 인덱스드 시그니처
+  - 속성이 많은데 값을 문자열로 구성하는 법
+- `ReadOnlyDict`는 앞에 `readonly`
+
+```ts
+class WritableBase extends Stream implements NodeJS.WritableStream {
+  ...
+}
+
+interface WritableStream extends EventEmitter {
+            writable: boolean;
+            write(buffer: Uint8Array | string, cb?: (err?: Error | null) => void): boolean;
+            write(str: string, encoding?: BufferEncoding, cb?: (err?: Error | null) => void): boolean;
+            end(cb?: () => void): this;
+            end(data: string | Uint8Array, cb?: () => void): this;
+            end(str: string, encoding?: BufferEncoding, cb?: () => void): this;
+        }
+```
+
+- `implements`는 해당 클래스가 어떤 인터페이스에 나와 있는 것들을 전부 구현하라는 의미
+- `WritableStream`에 있는 메서드들을 모두 `WritableBase`에서 구현해야.
+  - `write(), end()`에 대한 구현 내용이 존재 in `WritableBase`
+
+```ts
+http
+  .createServer((req, res) => {
+    setTimeout(() => {
+      console.log("hello");
+    }, 1000); // Node에서는 setTimeout의 return값이  NodeJS.Timeout으로 되어있음
+    window.setTimeout(() => {}, 1000); // 브라우저에서는 setTimeout의 return값이 number로 되어있는데
+
+    fs.readFile(path.join(__dirname, "index.html"), (err, data) => {
+      res.writeHead(200);
+      res.end(data);
+    });
+  })
+  .listen(8080, () => {
+    console.log("서버 시작됨");
+  });
+```
+
+- `createServer`의 메서드 체이닝
+
+```ts
+function createServer<
+    Request extends typeof IncomingMessage = typeof IncomingMessage,
+    Response extends typeof ServerResponse = typeof ServerResponse,
+>(requestListener?: RequestListener<Request, Response>): Server<Request, Response>;
+
+class Server<
+    Request extends typeof IncomingMessage = typeof IncomingMessage,
+    Response extends typeof ServerResponse = typeof ServerResponse,
+> extends NetServer {
+    constructor(requestListener?: RequestListener<Request, Response>);
+    ...
+    listen not exist ❌❌
+}
+
+class Server extends EventEmitter {
+    constructor(connectionListener?: (socket: Socket) => void);
+    ...
+    listen(port?: number, hostname?: string, backlog?: number, listeningListener?: () => void): this;
+    listen(port?: number, hostname?: string, listeningListener?: () => void): this;
+    listen(port?: number, backlog?: number, listeningListener?: () => void): this;
+    ...
+}
+```
+
+- 다른 `class`에서 정의되어 있음.
+- `path.join(__dirname, "index.html")`의 결과물은 `string`이기에 `fs.readFile()`와 맞는 타입을 확인 가능
+
+```ts
+interface Module {
+  /**
+   * `true` if the module is running during the Node.js preload
+   */
+  isPreloading: boolean;
+  exports: any;
+  require: Require;
+  id: string;
+  filename: string;
+  loaded: boolean;
+  /** @deprecated since v14.6.0 Please use `require.main` and `module.children` instead. */
+  parent: Module | null | undefined;
+  children: Module[];
+  /**
+   * @since v11.14.0
+   *
+   * The directory name of the module. This is usually the same as the path.dirname() of the module.id.
+   */
+  path: string;
+  paths: string[];
+}
+
+// Same as module.exports
+var exports: any;
+
+const server = http
+  .createServer((req, res) => {
+    setTimeout(() => {
+      console.log("hello");
+    }, 1000); // Node에서는 setTimeout의 return값이  NodeJS.Timeout으로 되어있음
+    window.setTimeout(() => {}, 1000); // 브라우저에서는 setTimeout의 return값이 number로 되어있는데
+
+    fs.readFile(path.join(__dirname, "index.html"), (err, data) => {
+      res.writeHead(200);
+      res.end(data);
+    });
+  })
+  .listen(8080, () => {
+    console.log("서버 시작됨");
+  });
+
+exports = server; // 1️⃣
+module.exports = server; // 2️⃣
+```
+
+- 1️⃣, 2️⃣와 같은 타이핑이 가능
+
+### @types/express
+
+- `express`도 `DefinitelyTypes`파일이기에 `@types/express` 설치 필요
+
+```ts
+const app = express();
+
+app.use(express.json()); // Body Parser
+app.use(express.urlencoded({ extended: false }));
+app.use("/", express.static("./public"));
+```
+
+- 위 코드는 대충 아래와 같은 타입일 것.
+
+```ts
+// 1️⃣
+interface Express {
+  (): App;
+  json: () => Middleware;
+  urlencoded: ({ extended?: boolean}) => Middleware;
+  static: (path: string) => Middleware;
+}
+
+// 2️⃣
+interface ExpressFunction {
+  (): App;
+}
+
+interface Express extends ExpressFunction{
+  json: () => Middleware;
+  urlencoded: ({ extended?: boolean}) => Middleware;
+  static: (path: string) => Middleware;
+}
+```
+
+- 함수로도 호출이 가능하고(`const app = express();`)
+- 함수를 속성으로 부여하는 방식의 타이핑도 가능
+
+```ts
+// express/index.d.ts
+
+export = e;
+// module.exports = e;
+
+import exp from "express";
+const app = exp();
+
+// Named Exports
+interface MediaType extends core.MediaType {}
+```
+
+- `CommonJS` 모듈
+- 변수명 아무렇게나 해도 무방
+  - 그저 `JS`, 원래 `module.exports` 담긴 변수 작명은 아무렇게나 가능
+- `Named Exports`는 작명이 불가능
+
+```ts
+declare function e(): core.Express;
+
+declare namespace e {
+  /**
+   * This is a built-in middleware function in Express. It parses incoming requests with JSON payloads and is based on body-parser.
+   * @since 4.16.0
+   */
+  var json: typeof bodyParser.json;
+  ...
+}
+
+/// <reference types="express-serve-static-core" />
+/// <reference types="serve-static" />
+
+import * as bodyParser from "body-parser";
+import * as core from "express-serve-static-core"; // 🔥
+import * as qs from "qs";
+import * as serveStatic from "serve-static";
+```
+
+- `express`의 주요 로직들은 `express-serve-static-core`에 있음
+- `index.d.ts`파일 말고 또 확인해야 한다.
+
+```ts
+export interface Express extends Application {
+    request: Request;
+    response: Response;
+}
+
+export interface Application<
+    LocalsObj extends Record<string, any> = Record<string, any>,
+> extends EventEmitter, IRouter, Express.Application {
+    /**
+     * Express instance itself is a request handler, which could be invoked without
+     * third argument.
+     */
+    (req: Request | http.IncomingMessage, res: Response | http.ServerResponse): any;
+    ...
+}
+
+export interface Request<
+    P = ParamsDictionary,
+    ResBody = any,
+    ReqBody = any,
+    ReqQuery = ParsedQs,
+    LocalsObj extends Record<string, any> = Record<string, any>,
+> extends http.IncomingMessage, Express.Request {
+  ...
+}
+```
+
+- `http.IncomingMessage, res: Response | http.ServerResponse`는 `http` 모듈에 있다.
+- `express`의 `req, res`는 `http`모듈을 확장하며 별도의 메서드를 추가한 것
+
+### 익스프레스 미들웨어 타이핑
+
+- `Depenndency` 관계로 인해 `@Types/Express`를 다운받았지만, `@Types/Express-Serve-Static-core`까지 함께 설치
+
+```
+This extracts the core definitions from express to prevent a circular dependency between express and serve-static
+```
+
+- `Express`와 `ServeStatic`을 나눠둔 이유는 두 모듈이 서로를 참조(순환참조)하면 ❌
+  - 순환 참조를 없애기 위해서 `새로운 모듈로 순환참조 되는 부분`을 따로 뺀다.
+
+```ts
+declare global {
+    namespace Express {
+      ...
+    }
+}
+```
+
+- `declare global`, 전역으로 선언
+- 어떤 파일에서든지 `namespace Express`에 접근 가능
+- `declare module` or `declare nameSpace` or `declare global`, 나중에 직접 수정이 가능하도록 설계🔥
+
+```ts
+app.get("/", middleware);
+
+export interface IRouterMatcher<
+    T,
+    Method extends "all" | "get" | "post" | "put" | "delete" | "patch" | "options" | "head" = any,
+> {
+    <
+        Route extends string,
+        P = RouteParameters<Route>,
+        ResBody = any,
+        ReqBody = any,
+        ReqQuery = ParsedQs,
+        LocalsObj extends Record<string, any> = Record<string, any>,
+    >(
+        // (it's used as the default type parameter for P)
+        path: Route,
+        // (This generic is meant to be passed explicitly.)
+        ...handlers: Array<RequestHandler<P, ResBody, ReqBody, ReqQuery, LocalsObj>>
+    ): T; // 1️⃣
+    <
+        Path extends string,
+        P = RouteParameters<Path>,
+        ResBody = any,
+        ReqBody = any,
+        ReqQuery = ParsedQs,
+        LocalsObj extends Record<string, any> = Record<string, any>,
+    >(
+        // (it's used as the default type parameter for P)
+        path: Path,
+        // (This generic is meant to be passed explicitly.)
+        ...handlers: Array<RequestHandlerParams<P, ResBody, ReqBody, ReqQuery, LocalsObj>>
+    ): T; // 2️⃣
+    ...
+}
+
+export interface IRouter extends RequestHandler {
+
+    param(name: string, handler: RequestParamHandler): this;
+
+    /**
+     * Alternatively, you can pass only a callback, in which case you have the opportunity to alter the app.param()
+     *
+     * @deprecated since version 4.11
+     */
+    param(callback: (name: string, matcher: RegExp) => RequestParamHandler): this;
+
+    /**
+     * Special-cased "all" method, applying the given route `path`,
+     * middleware, and callback to _every_ HTTP method.
+     */
+    all: IRouterMatcher<this, "all">;
+    get: IRouterMatcher<this, "get">;
+    ...
+```
+
+- 오버로딩으로 타이핑 되어 있음
+- `this`는 `IRouter`를 의미
+  - `<T, Method extends "all" | "get" | "post" | "put" | "delete" | "patch" | "options" | "head" = any,>`에서 `T`는 `IRouter`를 의미
+
+```ts
+    <   Route extends string,
+        P = RouteParameters<Route>,
+        ResBody = any,
+        ReqBody = any,
+        ReqQuery = ParsedQs,
+        LocalsObj extends Record<string, any> = Record<string, any>,
+    >(
+        path: Route, // '/'
+        ...handlers: Array<RequestHandler<P, ResBody, ReqBody, ReqQuery, LocalsObj>> // 배열 형식으로 여러개의 RequestHandler 가능
+    ): T;
+    ...
+```
+
+- `app.get("/", middleware);`는 여러가지 오러로딩 중 위의 형식으로 오버로딩 되어있음
+- `RequestHandler`, 미들웨어
+  ```ts
+  export interface RequestHandler<
+    P = ParamsDictionary,
+    ResBody = any,
+    ReqBody = any,
+    ReqQuery = ParsedQs,
+    LocalsObj extends Record<string, any> = Record<string, any>
+  > {
+    // tslint:disable-next-line callable-types (This is extended from and can't extend from a type alias in ts<2.2)
+    (
+      req: Request<P, ResBody, ReqBody, ReqQuery, LocalsObj>,
+      res: Response<ResBody, LocalsObj>,
+      next: NextFunction
+    ): void;
+  }
+  ```
+
+```ts
+app.get(
+  "/",
+  (req, res) => {},
+  cors(),
+  multer(),
+  (req, res) => {},
+  (req, res) => {}
+);
+```
+
+- `cors(), multer()`같은 것들이 모두 `RequestHandler`이며 미들웨어
+  - 미들웨어는 `RequestHandler` 타입🔥
+
+```ts
+declare function e(): core.Express;
+
+declare namespace e {
+  ...
+export interface Response<
+    ResBody = any,
+    LocalsObj extends Record<string, any> = Record<string, any>,
+    StatusCode extends number = number,
+> extends http.ServerResponse, Express.Response {
+  ...
+}
+}
+```
+
+- `e`는 명시적으로 `import`해야 사용 가능
+- `extends`로 2개가 가능
+
+```ts
+import exp, {
+  Request,
+  RequestHandler,
+  ErrorRequestHandler,
+  Response,
+  NextFunction,
+} from "express";
+
+const errorMiddleware: ErrorRequestHandler = (
+  err: Error,
+  req: Request,
+  res: Response,
+  // res: Express.Response, 위와 동일
+  next: NextFunction
+) => {
+  console.log(err.status);
+};
+```
+
+- `res: Response`와 `res: Express.Response`는 동일한 `Response interface`를 가리킴
+  - `Express-Serve-Static-core`안에서 🔥🔥🔥
+  - `Express.Response`로 들어가보면
+  ```ts
+  declare global {
+    namespace Express {
+        // These open interfaces may be extended in an application-specific manner via declaration merging.
+        // See for example method-override.d.ts (https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/method-override/index.d.ts)
+        interface Request {}
+        interface Response {}
+        ...
+    }
+  }
+  ```
+  - `interface Response {}`으로 사용되지만, `interface`는 나중에 사용되면 타입이 합쳐지므로 아래쪽으로 내려가보면🔥🔥
+  ```ts
+    export interface Response<
+      ResBody = any,
+      LocalsObj extends Record<string, any> = Record<string, any>,
+      StatusCode extends number = number,
+  > extends http.ServerResponse, Express.Response {
+    ...
+  }
+  ```
+  - 위와 같은 부분을 확인할 수 있음. `Express.xxxx`는 `declare global`때문에 전역에서 사용 가능
+  - 사용자가 직접 `Express.Response` 혹은 `Response`를 자유롭게 확장(커스터마이징) 가능 🔥🔥
+  - `interface`간 타입의 합쳐짐의 중요성🟠
