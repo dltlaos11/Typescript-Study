@@ -4574,3 +4574,4 @@ const middleware: RequestHandler<
 - `declare global`을 사용해야🔥
 - 개인이 `Response, Request` 커스터마이징 가능, 괜히 `declare global`가 있는게 아님
   - 안에 `namespace Express {...}`까지, `index.d.ts`확인
+- `interface` 확장 가능, 충돌 ❌
