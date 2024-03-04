@@ -4447,8 +4447,10 @@ const errorMiddleware: ErrorRequestHandler = (
 ```
 
 - `res: Response`와 `res: Express.Response`는 동일한 `Response interface`를 가리킴
+
   - `Express-Serve-Static-core`안에서 🔥🔥🔥
   - `Express.Response`로 들어가보면
+
   ```ts
   declare global {
     namespace Express {
@@ -4460,7 +4462,9 @@ const errorMiddleware: ErrorRequestHandler = (
     }
   }
   ```
+
   - `interface Response {}`으로 사용되지만, `interface`는 나중에 사용되면 타입이 합쳐지므로 아래쪽으로 내려가보면🔥🔥
+
   ```ts
     export interface Response<
       ResBody = any,
@@ -4470,6 +4474,103 @@ const errorMiddleware: ErrorRequestHandler = (
     ...
   }
   ```
+
   - 위와 같은 부분을 확인할 수 있음. `Express.xxxx`는 `declare global`때문에 전역에서 사용 가능
   - 사용자가 직접 `Express.Response` 혹은 `Response`를 자유롭게 확장(커스터마이징) 가능 🔥🔥
   - `interface`간 타입의 합쳐짐의 중요성🟠
+
+  ### req, res 속성 타이핑(+인터페이스 확장)
+
+  ```ts
+  interface RequestHandler<
+    P = core.ParamsDictionary,
+    ResBody = any,
+    ReqBody = any,
+    ReqQuery = core.Query,
+    Locals extends Record<string, any> = Record<string, any>
+  > extends core.RequestHandler<P, ResBody, ReqBody, ReqQuery, Locals> {}
+
+  export interface RequestHandler<
+    P = ParamsDictionary,
+    ResBody = any,
+    ReqBody = any,
+    ReqQuery = ParsedQs,
+    LocalsObj extends Record<string, any> = Record<string, any>
+  > {
+    // tslint:disable-next-line callable-types (This is extended from and can't extend from a type alias in ts<2.2)
+    (
+      req: Request<P, ResBody, ReqBody, ReqQuery, LocalsObj>,
+      res: Response<ResBody, LocalsObj>,
+      next: NextFunction
+    ): void;
+  }
+
+  // 미들웨어는 RequestHandler 타입이다.
+  const middleware: RequestHandler<
+    { paramType: string },
+    { message: string }, // 🟠
+    { bodyType: number },
+    { queryType: boolean },
+    { localType: unknown }
+  > = (req, res, next) => {
+    req.params.paramType;
+    req.body.bodyType;
+    req.query.queryType;
+    res.locals.localType;
+    res.json({
+      message: "hello", // 🟠
+    });
+  };
+  ```
+
+  - `const middleware: RequestHandler<...>`이런 형식의 타이핑이 좋다👍
+  - 변수 뒤에 바로 타이핑
+    - 제네릭
+
+```ts
+import exp, { Request, Response } from "express";
+
+export interface Response {
+  baoBabTree: "babTree"; // ❌
+}
+export interface Request {
+  baoBabTree: "babTree"; // ❌
+}
+```
+
+- `interface`는 확장 가능하다(합쳐진다) 했는데 위처럼하면 에러남
+
+```ts
+import exp, { Request, Response } from "express";
+
+declare global {
+  namespace Express {
+    export interface Response {
+      baoBabTree: "babTree";
+    }
+    export interface Request {
+      baoBabTree: "babTree";
+    }
+  }
+}
+
+const middleware: RequestHandler<
+  { paramType: string },
+  { message: string },
+  { bodyType: number },
+  { queryType: boolean },
+  { localType: unknown }
+> = (req, res, next) => {
+  req.params.paramType;
+  req.body.bodyType;
+  req.query.queryType;
+  res.locals.localType;
+  res.json({
+    message: "hello",
+  });
+  req.baoBabTree; // (property) Express.Request.baoBabTree: "babTree" 🔥
+```
+
+- `declare global`을 사용해야🔥
+- 개인이 `Response, Request` 커스터마이징 가능, 괜히 `declare global`가 있는게 아님
+  - 안에 `namespace Express {...}`까지, `index.d.ts`확인

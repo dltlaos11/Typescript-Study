@@ -25,6 +25,17 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
 
+declare global {
+  namespace Express {
+    export interface Response {
+      baoBabTree: "babTree";
+    }
+    export interface Request {
+      baoBabTree: "babTree";
+    }
+  }
+}
+
 // 미들웨어는 RequestHandler 타입이다.
 const middleware: RequestHandler<
   { paramType: string },
@@ -40,6 +51,7 @@ const middleware: RequestHandler<
   res.json({
     message: "hello",
   });
+  req.baoBabTree;
 
   req.flash("플래시메시지");
   req.flash("1회성", "플래시메시지");
