@@ -4638,7 +4638,60 @@ declare global {
 }
 
 export {}; // 🔥
+// 타입 선언만 있는 모듈이 ambient 모듈 🔥
+// 조건: import 혹은 export를 사용해야 함 declare 밖에서 🔥
 ```
 
 - 바깥에 `import` 혹은 `export`문이 있어야 `declare global`을 사용했을 떄 `type` 인식이 된다.
 - 처음에 `express.ts`파일에서 `declare glboal`이 성공했던 이유는 상단의 `import`문 떄문 🔥🔥
+- 근데 간단하게 사용할 때는 `declare`필요없이 그냥 `interface Error {...}`로 사용
+  - `interface`같은 폴더에 있는 것들은 `ts`가 알아서 합쳐준다.
+    - `Interface Declare Merging`🔥
+    - `Declare argumentation`
+      ```ts
+      export {}; // 🔥
+      // 타입 선언만 있는 모듈이 ambient 모듈 🔥
+      // 조건: import 혹은 export를 사용해야 함 declare 밖에서 🔥
+      ```
+      - `export {}`붙여줘야 하는 이유가 `declare glboal`을 하기 위해선 파일 자체가 module 시스템이어야 한다 🔥🔥🔥
+      - `export {}`가 없으면 `Ts`가 모듈 시스템이 아닌 스크립트로 인식
+        - 혹은 `import`문이 있어야 모듈 시스템으로 인식, (서로간에 불러야..)🟠
+      - 인터페이스 선언 병합은 import나 export 없이도 동작.
+      - 이는 TypeScript 컴파일러가 같은 이름을 가진 interface를 찾아서 자동으로 합치기 때문.
+      - 이 기능은 모듈 시스템과는 별개로 동작하며, TypeScript의 타입 시스템의 일부 🟠
+- `TypeScript`와 `ECMAScript 2015`에서는 최상위 수준에서 `import` 또는 `export`를 사용하는 파일을 모듈로 간주
+- 반대로, 최상위 수준에서 `import`나 `export` 선언이 없는 파일은 스크립트로 취급되며, 그 내용은 전역 범위에서 사용할 수 있다.
+
+### passport에서 req.user 타이핑하기
+
+```ts
+app.use(
+  session({
+    secret: "SECRET",
+  })
+); // 2️⃣
+app.use(passport.initialize()); // 1️⃣
+app.use(passport.session());
+app.use(cookieParser("SECRET"));
+
+const middleware: RequestHandler<
+  { paramType: string },
+  { message: string },
+  { bodyType: number },
+  { queryType: boolean },
+  { localType: unknown }
+> = (req, res, next) => {
+  req.session; // 2️⃣
+  req.user; // 1️⃣
+  req.user?.baoBabTree;
+  //   declare global {  types.d.ts
+  //     namespace Express {
+  //       interface User {
+  //         baoBabTree: string;
+  //       }
+  //     }
+  //   }
+};
+```
+
+- 실제 코드에선 `app.use(xxx)`을 해야 `Middleware`에서 사용가능(e.g. `req.user`)

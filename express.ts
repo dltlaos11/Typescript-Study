@@ -58,7 +58,15 @@ const middleware: RequestHandler<
   req.flash();
 
   req.session;
-  req.user?.zerocho;
+  req.user?.baoBabTree;
+  //   declare global {  types.d.ts
+  //     namespace Express {
+  //       interface User {
+  //         baoBabTree: string;
+  //       }
+  //     }
+  //   }
+  //   export {};
 };
 app.get("/", middleware);
 // app.get("/", (req, res) => {
