@@ -69,6 +69,14 @@ app.get("/", middleware);
 
 // });
 
+declare global {
+  interface Error {
+    status: number;
+    // Error는 lib이라서 import 안해도 사용 가능
+  }
+  // 혹여 import { ... , Error } from 'xxx'처럼 사용할 경우, 충돌을 대비해 declare global 사용, namespace까지 같이있다면 같이 사용
+}
+
 const errorMiddleware: ErrorRequestHandler = (
   err: Error,
   req: Request,

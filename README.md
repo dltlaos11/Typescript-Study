@@ -4575,3 +4575,70 @@ const middleware: RequestHandler<
 - 개인이 `Response, Request` 커스터마이징 가능, 괜히 `declare global`가 있는게 아님
   - 안에 `namespace Express {...}`까지, `index.d.ts`확인
 - `interface` 확장 가능, 충돌 ❌
+
+### d.ts에서의 declare global
+
+- `declare`가 단순히 타입(`namespace`, `global`, `module`)을 선언하는 기능이 주다.
+  - `global`, `namespace`, `interface` 등은 똑같은 모양으로 만들어두면 서로 `확장`이 가능 🔥
+
+```ts
+export type ErrorRequestHandler<
+  P = ParamsDictionary,
+  ResBody = any,
+  ReqBody = any,
+  ReqQuery = ParsedQs,
+  LocalsObj extends Record<string, any> = Record<string, any>
+> = (
+  err: any,
+  req: Request<P, ResBody, ReqBody, ReqQuery, LocalsObj>,
+  res: Response<ResBody, LocalsObj>,
+  next: NextFunction
+) => void;
+```
+
+- `err`가 `any`로 되어있는데, `any`라는 `type`은 쓰지말기, `unknown`으로 대체하자🟠
+
+```ts
+declare global {
+  interface Error {
+    status: number;
+    // Error는 lib이라서 import 안해도 사용 가능
+  }
+  // 혹여 import { ... , Error } from 'xxx'처럼 사용할 경우, 충돌을 대비해 declare global 사용, namespace까지 같이있다면 같이 사용
+}
+
+const errorMiddleware: ErrorRequestHandler = (
+  err: Error,
+  req: Request,
+  res: Express.Response, // 🔥
+  next: NextFunction
+) => {
+  console.log(err.status); // type인식🟠
+};
+```
+
+- `declare global`부분을 `types.d.ts`라는 파일을 만들어서 관리하는게 통상적
+- 근데 `types.d.ts`에서 아래와 같이 사용하면 인식이 된다. `declare global`없이 ‼
+
+```ts
+interface Error {
+  status: number;
+  // Error는 lib이라서 import 안해도 사용 가능
+}
+// 혹여 import { ... , Error } from 'xxx'처럼 사용할 경우, 충돌을 대비해 declare global 사용, namespace까지 같이있다면 같이 사용
+```
+
+- `declare global`를 `types.d.ts`에 포함시키려면 아래와 같이 하면 된다.
+
+```ts
+declare global {
+  interface Error {
+    status: number;
+  }
+}
+
+export {}; // 🔥
+```
+
+- 바깥에 `import` 혹은 `export`문이 있어야 `declare global`을 사용했을 떄 `type` 인식이 된다.
+- 처음에 `express.ts`파일에서 `declare glboal`이 성공했던 이유는 상단의 `import`문 떄문 🔥🔥
