@@ -4695,3 +4695,96 @@ const middleware: RequestHandler<
 ```
 
 - 실제 코드에선 `app.use(xxx)`을 해야 `Middleware`에서 사용가능(e.g. `req.user`)
+
+### passport Strategy 타입 분석
+
+- 노드쪽 `lib`은 결국에는 노드 모듈을 다시 참조하는 경우가 많음
+  - e.g.) `app.listen()`
+- `constructor`의 return은 타입 필요없다
+- `authenticate`만 있으면 `Strategy`로 인식, `duck typing`. e.g.) `promise`에는 `then`만 있으면 된다..
+
+```ts
+interface Option {
+  ...
+}
+interface Callback {
+  ...
+}
+interface OptionReq {
+  ...
+}
+interface CallbackWithReq {
+  ...
+}
+
+declare class S {
+  constructor(option: Option, callback: Callback);
+  constructor(option: OptionReq, callback: CallbackWithReq);
+
+  authenticate(): void; // duck typing🟠
+}
+```
+
+- 역으로 타입 만들어보기
+
+### JS로만들어진 lib 타이핑해보기
+
+```ts
+import { BaoBaBo22 } from "BaoBaBo"; // 빨간줄 에러나는 상황❌
+
+const DisMissKeyboardView: Fc<{
+  children: ReactNode;
+  style: StyleSheetProPerties;
+}> = ({ children, ...props }) => {
+  <div>
+    <BaoBaBo22 {...props} style={props.style} abc="def">
+      {children}
+    </BaoBaBo22>
+  </div>;
+};
+
+// BaoBaBo 타이핑하기
+// types/BaoBaBo.d.ts
+declare module "BaoBaBo" {
+  import * as React from "react";
+  declare const BaoBaBo22: JSX.Element | React.Component; // 여기서 에러나면 module 직접 들어가서 쓸만한 타입 참조
+  // class BaoBaBo22 extends React.Component<ViewProps & {abc: string}> {} 🟠
+  // class BaoBaBo33 extends BaoBaBo22 {}
+  export { BaoBaBo22 };
+}
+```
+
+- `declare module "BaoBaBo"`
+- `import`, `export`🔥
+- `declare const`로 사용했지만 `class`를 사용해야 할 수도 있음
+- 틀린 타입 있으면 `types`폴더에서 직접 수정하기
+
+### connect-flash 직접 타이핑하기
+
+- `Ts`역타이핑 할 때 에러만 안나게 하는게 중요.
+
+```ts
+declare module "connect-flash" {
+  global {
+    // req.flash("플래시메시지"); 🟠 부분
+    namespace Express {
+      interface Request {
+        flash(message: string);
+        flash(event: string, message: string): void;
+        flash(): { [key: string]: string[] }; // 인덱스드 시그니처
+        // 맵드 시그니처(key를 줄일 수 있음)
+        // type Q = "Human" | "Mammal" | "Animal"; // interface는 |, & 사용이 안됨, type만 가능
+        // type C1 = { [key in Q]: number };
+      }
+    }
+  }
+
+  import express = require("express");
+  function flash(): express.RequestHandler; // RequestHandler 미들웨어 타입
+  import exp, { Response, NextFunction } from "express";
+  // exp: default export, { Response, NextFunction }: named export
+  export default flash;
+} // app.use(flash()); 미들웨어 장착 부분 🟠
+```
+
+- 타입은 최소한만, 점차 늘려가기

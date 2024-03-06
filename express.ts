@@ -23,7 +23,7 @@ app.use(
 );
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(flash());
+app.use(flash()); // 미들웨어에 장착 and req.xxx 메서드 추가 타이핑
 
 declare global {
   namespace Express {
@@ -53,9 +53,10 @@ const middleware: RequestHandler<
   });
   req.baoBabTree;
 
-  req.flash("플래시메시지");
-  req.flash("1회성", "플래시메시지");
-  req.flash();
+  req.flash("플래시메시지"); // set
+  req.flash("1회성", "플래시메시지"); // set
+  const a = req.flash(); // get
+  req.flash(); // undefined
 
   req.session;
   req.user?.baoBabTree;
