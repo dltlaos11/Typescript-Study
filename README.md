@@ -4917,4 +4917,63 @@ type Result2 = Intersection<{ a(pa: 1 | 2): void; b(pb: 2 | 3): void }>; // type
     - if `매개변수` => 교집합
       - `(pa: infer A)`
 - `함수의 매개변수 부분은 반공변적이고 매개변수가 아닌 부분은 대부분 다 공변적이기 떄문에 공변적인 것 끼리는 합집합이 되고 반공변적인 것끼리는 교집합이 된다.`
--
+  - `Union`에서의 `infer U`는 매개변수 부분이 아니므로 공변성이 적용, 고로 `1|2`와 `2|3`이 합쳐짐(부모, 자식 타입 관계상 부모에 자식타입 대입가능해서 공변적인것처럼. `infer U`으로 공변성이 적용되면 다 가능)
+  - `Intersection`에서의 `infer U`는 매개변수 부분으로 반공변성이 적용, 고로 `1|2`와 `2|3` 중 겹치는것(부모, 자식 타입 관계상 자식 타입에 부모 타입 대입 가능. `infer U`으로 반공변성이 적용되면 겹치는 것이 나오므로 교집합)
+- 해당내용은 공식문서에서 사라짐. 그러나 중요
+- `infer U`는 여러번 같이 쓰면 합쳐진다.🔥🔥
+  ```ts
+  type Union<T> = T extends { a: infer A; b: infer B } ? A | B : never;
+  ```
+  - 이게 더 직관적이긴 해보임
+    ::지연평가
+
+```ts
+function double<T extends string | number>(
+  x: T
+): T extends string ? string : number {
+  const a: T extends string ? string : number = x;
+  // return타입 뿐만아니라 컨디셔널 타입 사용시 문제 발생
+
+  // return x as any;
+  return x;
+}
+```
+
+- T는 string 혹은 number 혹은 never여도 된다.
+- `T extends string ? string : number`, `conditional type`
+- T는 함수 디자인 시점에 결정되지 않기 떄문에 `conditional type`을 써도 그 T를 결정 할 수 없다.
+- TS 컴파일러 또는 트랜스파일러가 타입을 결정할 때 conditional type을 못함. 그래서 가장 마지막에 평가한다.
+- 매개변수에 string을 넣으면 리턴타입도 동일할 것이라 생각하지만 TS컴파일러의 타입은 `T extends string ? string : number`임.
+- `conditional type`으로 인한 지연평가, `conditional type`을 보면 그대로 놔둬야 함.
+- `해결`: 오버로딩, return에 as any처럼 `type assertion`하기
+
+`type assertion` 안쓰는 방식, `[]`로 감싸기
+
+```ts
+function double2<T extends [T] extends [string] ? string : number>(
+  x: T
+): [T] extends [string] ? string : number {
+  return x;
+}
+```
+
+- 배열로 감싸면 Ts의 기본적인 동작들이 몇 개 다르게 수행되는 것들이 있음
+- 컨디셔널 타입으로 인한 지연평가가 `[T] extends [string] ? string : number`을하면 다른 방식으로 바뀜
+  - `[T] extends [string]? string : number`도 참고로 같이 바꿔줌.
+- `[]` 혹은 `{}`감싸기는 `TS`컴파일러 혹은 설계상의 문제기 떄문에 외우는것은 비추
+
+::잉여속성검사
+
+```ts
+interface SquareConfig {
+  color?: string;
+  width?: number;
+}
+
+function createSquare(config: SquareConfig) {
+  // ...
+}
+const obj2 = { color: "red", width: 100, height: 12 };
+
+let mySquare = createSquare(obj2);
+```
