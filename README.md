@@ -1057,12 +1057,14 @@ a('1'); // 1
 
 type B =(x: string) => number | string; // 더 넓은 타입
 const B = a; // 🤔 더 넓은 타입에 대입 가능
+// 부모 타입을 반환하는 타입에 자식 타입을 대입하는 것은 가능 - 공변적, 타입이 공변
 
 function c(x:string): string | number { // (x: string)=> string 또는 (x: string) => number
    return +x;
 }
 type D = (x: string) => number;
 let b: D = c; // 리턴값의 경우 반대로 좁은 타입에 넓은 타입을 넣는 것은 불가능❌
+// 자식 타입을 반환하는 타입에 부모 타입을 반환하는 함수를 넣는 것은 불가능 - 공변성 떄문
 
 // 매개변수가 다른 경우🟠🟠 매개변수의 타입이 더 작은 것에 큰 타입이 대입가능, 좁은 타입으로 대입 가능
 function e(x: string | number): number { // (x: string) => number 또는 (x:number) => number ❌
@@ -1071,6 +1073,7 @@ function e(x: string | number): number { // (x: string) => number 또는 (x:numb
 }
 type F = (x:string) => number; // (x:number) => number가 (x:string) => number에 대입이 가능
 let d: F = e;
+// 매개변수 타입이 부모(string | number) 자식(string)관계라면, 자식의 매개변수를 받는 함수는 부모를 받을 수 있다 - 반공변적, 타입이 반공변
 
 // 리턴값이 넓은 타입으로, 다른 경우 매개변수가 좁은 타입으로 대입 가능🟢
 function g(x: string | number): number{
@@ -1078,6 +1081,8 @@ function g(x: string | number): number{
 }
 type H = (x: string) => number | string;
 let z: H = g;
+// 반환 타입도 성립함. 부모를 반환하는 타입은 자식 타입을 반환할 수 있으므로(공변적) 성립하고
+// 매개변수의 타입도 자식의 매개변수를 받는 함수에 부모타입의 매개변수를 넣는것도 성립한다.
 
 // 타입 넓히기, ts가 모든 상황을 고려해서 type을 넓혀줌
 let r = 5; // let r: number
@@ -1087,6 +1092,34 @@ if (typeof q === 'number'){
    q.
 }
 ```
+
+- 공변성, 타입이 공변이다.
+  - 함수의 반환 타입이 부모 타입에서 자식 타입으로 변화할 수 있음을 의미.
+  - e.g.) 만약 함수가 `Animal` 타입을 반환하고, `Dog` 타입이 `Animal` 타입의 하위 타입이라면, 이 함수는 `Dog` 타입을 반환할 수 있다. 이는 반환 타입이 공변이라는 것을 의미.
+- 반공변성, 타입이 반공변이다.
+  - 함수의 매개변수 타입이 자식 타입에서 부모 타입으로 변화할 수 있음을 의미.
+  - e.g.) 만약 함수가 `Dog` 타입의 매개변수를 받고, `Dog` 타입이 `Animal` 타입의 하위 타입이라면, 이 함수는 Animal 타입의 매개변수를 받을 수 있다.
+  - 이는 매개변수 타입이 반공변이라는 것을 의미.
+
+### infer
+
+- `TypeScript`에서 `infer` 키워드는 조건부 타입 내에서 사용되며, 입력 타입에 기반한 타입을 추론하는 데 사용된다.
+- `infer`를 사용하면, `추론하려는 타입`을 나타내는 `타입 변수를 정의`할 수 있다.
+
+- 일반적으로 `infer`는 조건부 타입의 `extends` 절과 함께 사용되며, `다른 타입에서 타입을 추출하고 저장`하는 데 사용된다.
+- 이를 통해, 여러 다른 입력 타입에 작동하는 일반 타입을 만드는 데 유용.
+
+예를 들어, 다음과 같이 `GetFirstArgumentOfAnyFunction`이라는 타입을 정의할 수 있다.
+
+```ts
+type GetFirstArgumentOfAnyFunction<T> = T extends (arg: infer U) => any
+  ? U
+  : never;
+```
+
+이 타입은 함수를 인자로 받아, 그 함수의 <mark>첫 번째</mark> 인자의 타입을 추론. 이를 통해, 함수의 인자 타입에 따라 다른 타입을 반환하는 조건부 타입을 만들 수 있다.
+
+따라서, TypeScript의 `infer` 키워드는 <mark>타입 정보를 추출하는 강력한 도구</mark>로, 다른 타입에서 타입을 추출하고 저장하는 데 사용.
 
 ## 오버로딩
 
@@ -4788,3 +4821,100 @@ declare module "connect-flash" {
 ```
 
 - 타입은 최소한만, 점차 늘려가기
+
+### never, intersection, 지연평가
+
+::[never](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html)
+
+- js에는 [never](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html)라는 타입이 없다.
+
+```ts
+type IsNever<T> = [T] extends [never] ? true : false;
+// type IsNever<T> = T extends never ? true : false;
+type A1 = IsNever<never>;
+type A2 = IsNever<boolean>;
+```
+
+- `never`는 공집합, 타입 매개변수와 유니언이 만나면 분배법칙이 실행🟠
+  - `never | true`이런게 유니언 아닌가?
+    - `never`는 그 자체로 유니언이다.🟠
+    - `T extends never`, `T`자리에 `union`이 그대로 들어간다고 생각하면 안됨
+    - `never extends never ? true : false;` 자체는 실행이 안된다.
+    - `[T] extends [never] ? true : false;`, `[]`로 묶는 것이 `TS`에서 분배법칙을 막는 방법
+    - `type IsNever<T> = {type: T} extends {type: never} ? true : false;`, 이것도 가능
+      - `TS`에서 분배법칙(`타입 매개변수와 유니언이 만날 때`)을 막는 방법은 `{}`혹은 `[]`사용
+  - 타입 매개변수인 `T`와 유니언이 만날 경우(`type IsNever<T> = union extends ...`) 분배법칙이 실행되는데 `never`는 공집합이라 집합이라서 들어는 가지만 공집합이기 떄문에 분배법칙이 일어나지 않음🔥
+    - 해결방법이라기 보단 분배법칙을 `막는` 방법
+      - `[T] extends [never]`
+      - `{type: T} extends {type: never}`
+    - `never extends never ? true : false`는 `never` 🔥🔥
+  - 유니언과 제네릭이 만나면 분배법칙이 살행된다.
+
+::집합론(`부분집합`), 잉여속성검사
+
+```ts
+interface VO {
+  value: any;
+}
+
+const obj = { value: "hi", what: 123 };
+const a: VO = obj;
+// const a: VO ={value: 'hi', what: 123}; // 객체 리터럴(변수 초기화)을 바로 넣으면 잉여속성검사가 발생, 참조로 해결🌞
+
+const returnVO = <T extends VO>(): T => {
+  return { value: "test" };
+  // '{ value: string; }'은(는) 'T' 형식의 제약 조건에 할당할 수 있지만, 'T'은(는) 'VO' 제약 조건의 다른 하위 형식으로 인스턴스화할 수 있습니다.
+};
+```
+
+- `<T extends VO>`를 `<T == VO>`로 생각하면 안된다.
+- `T`를 `VO`의 부분집합(하위집합)이라고 봐야한다.
+  - 고로 `{ value: "test" }`가 `T`일 것이라고 생각하면 안됨. `T`의 부분집합이 들어올 수도 있다.
+    - 그 부분집합에 `never`가 들어갈 수 도 있다. `T`와 `VO`는 같지 않음(`집합론`)
+
+```ts
+function onlyBoolean<T extends boolean>(arg: T = false): T {
+  return arg;
+  // 'boolean'은(는) 'T' 형식의 제약 조건에 할당할 수 있지만, 'T'은(는) 'boolean' 제약 조건의 다른 하위 형식으로 인스턴스화할 수 있습니다.
+}
+```
+
+- `T`는 `boolean`의 부분집합인데 안되는 이유는 `never`도 boolean의 부분집합이기 때문 🔥
+- `type`에서는 `never`때문에 에러가 나는 경우가 많다.
+
+::intersection
+
+- 교집합을 만드는 타이핑
+
+```ts
+type Union<T> = T extends { a: infer U; b: infer U } ? U : never; // 합집합
+type Result1 = Union<{ a: 1 | 2; b: 2 | 3 }>; // type Result1 = 1 | 2 | 3
+
+type Union3<T> = T extends { a: () => infer U; b: () => infer U } ? U : never;
+type Result3 = Union3<{ a: () => 1 | 2; b: () => 2 | 3 }>; // type Result3 = 1 | 2 | 3
+
+type Intersection<T> = T extends {
+  a: (pa: infer U) => void;
+  b: (pb: infer U) => void;
+}
+  ? U
+  : never;
+type Result2 = Intersection<{ a(pa: 1 | 2): void; b(pb: 2 | 3): void }>; // type Result2 = 2
+```
+
+- `infer`를 같은 타입 매개변수로 두는 경우는 흔치않음, 아래처럼 많이 쓰이지
+  ```ts
+    a: (pa: infer A) => void;
+    b: (pb: infer B) => void;
+  ```
+- 둘 다 같은 타입 매개변수(`infer U`)로 두면 교집합이 된다.
+  - [공변성, 반공변성](#공변성-반공변성) 🥎
+  - 매개변수일 떄만, 매개변수에 같은 타입 매개변수 `U`를 `infer`할 때만 교집합이 된다.
+  - 객체의 속성으로 하든 반환값의 타입으로 하든 같은 곳에다가 하면 기본적으로 합집합이 되지만 매개변수에 하면 교집합이 된다.
+    - if `infer U` === `객체의 속성` or `반환값의 타입` => 합집합
+      - `{ a: infer U; b: infer U }`
+      - `{ a: () => infer U; b: () => infer U }`
+    - if `매개변수` => 교집합
+      - `(pa: infer A)`
+- `함수의 매개변수 부분은 반공변적이고 매개변수가 아닌 부분은 대부분 다 공변적이기 떄문에 공변적인 것 끼리는 합집합이 되고 반공변적인 것끼리는 교집합이 된다.`
+-
