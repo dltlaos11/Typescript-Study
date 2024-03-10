@@ -4977,3 +4977,208 @@ const obj2 = { color: "red", width: 100, height: 12 };
 
 let mySquare = createSquare(obj2);
 ```
+
+### 모듈 시스템 총정리
+
+::모듈 vs 스크립트
+
+type.ts
+
+```ts
+declare module "hello" {}
+```
+
+- 위처럼 선언 되어있다고 해서 모듈 파일이 아니다.
+- 모듈 파일이 되기 위해서는 2가지가 필요
+  - `export { ... }` 혹은 `export default { ... }`
+  - `import 'react'`
+- `types`정의 파일에서 위 2가지가 없다면 모듈 파일이 아니라 <mark>스크립트 파일</mark>
+  - 스크립트 파일이면 전역적으로 접근 가능함
+- 다만 위 2가지가 `top-level`, 즉 최상위 선언에 해당되지 않는다면 그것 또한 스크립트 파일이다.
+  ```ts
+  declare module "hello" {
+    export {};
+  }
+  ```
+
+::모듈 종류
+
+js vs ECMAScript
+
+`JavaScript`는 1996년에 만들어졌고, 그 다음에 `JavaScript`의 표준화를 위해 1997년에 `ECMAScript`가 만들어졌다. 당시 기준에서 `JavaScript`는 `ECMAScript` 사양을 따르고 있었기 때문에, `JavaScript`는 `ECMAScript` 사양을 준수하고 있던 언어의 예시.
+
+여기서 재미있는 사실을 하나 알 수 있다. 바로, `ECMAScript는 JavaScript를 기반으로 하는 동시에, JavaScript 역시 ECMAScript를 기반으로 한 것`.
+
+```ts
+// commonjs
+export = A; // export 방식
+import A = require("a"); // import(module = commonjs)
+import * as A from "a"; // import(module = es2015, esModuleInterop = false)
+import A from "a"; // import(module = es2015, esModuleInterop = true)
+
+// UMD
+export = A; // commonjs를 위해
+export as namespace A; // 스크립트 파일을 위해, 스크립트 파일에서는 import 없이 namespace로 불러올 수 있음
+
+// ESM, 표준(ES2015), 권장 방식
+export default A;
+import A from "a";
+
+export * from "모듈명"; // 모듈로부터 모든 것을 임포트한 다음에 다시 export, default 못 가져오고 commonjs 모듈도 못 가져옴
+export * as namespace from "모듈명"; // 모듈로부터 모든 것을 임포트한다음에 as에 적힌 namespace대로 export(default 가져올 수 있음, commonjs 모듈 못 가져옴)
+import { namespace } from "모듈명";
+namespace.default; // 이 방식으로 default 접근 가능
+```
+
+- `TS`는 표준인 `ESM` 사용
+- `node`는 아직 `commonJS`가 많이 남아있긴 한데, `ESM`으로 넘어가려는 추세
+- `UMD`는 `CommonJS, AMD, ESM`, 3가지 모듈시스템을 모두 지원하는 경우
+  - 해당 모듈시스템은 브라우저에서도 사용 가능하고 `node`에서도 사용 가능
+  - `react`는 `UMD`로 작성되어 있음
+- `CommonJS` 모듈은 해당 모듈 방식대로 임포트하거나 익스포트하지만 `UMD` 모듈은 `CommonJS, ESM`으로 임포트가 가능
+  - `ESM`도 마찬가지, 그래서 보통 `UMD` 모듈을 임포트 할 경우, `ESM` 표준 방식으로 임포트하는 것이 추천
+
+그래서 타입 선언된 파일을 보려면 `package.json`에서 `types`속성을 확인하고 봐야한다.
+
+- `tsconfig.json` 생성 -> `npx tsc`
+  ```ts
+  import express = require("express");
+  ```
+  - `tsconfig.json`에서 `"module": "commonjs"`
+- 만약 `ES2015`모듈로 설정한다면, `"module": "ES2015"`
+  ```ts
+  import * as express from "express";
+  ```
+  - `* as`, 부분이 거슬린다면 `tsconfig.json`에서 `"esMduleinterop": true`로 설정하면
+    - `"esMduleinterop": true`을 항상 켜놓는 것이 좋아보임 🔥
+  ```ts
+  import express from "express";
+  ```
+
+React의 타입은 `UMD` 모듈시스템 사용
+
+```ts
+// eslint-disable-next-line @definitelytyped/export-just-namespace
+export = React;
+export as namespace React;
+```
+
+`UMD` 모듈시스템을 사용하기에 `CommonJS`를 사용한다면
+
+```ts
+import React = require("react");
+```
+
+`"esMduleinterop": true`인 상태이므로 아래와 같이 사용 가능
+
+```ts
+import React from "react";
+```
+
+`UMD` 모듈시스템 특성상(?) `React`에서는 아래(`import 안하고`)와 같이 사용가능
+
+```ts
+React.Children;
+// export as namespace React; 🟠
+
+// export {} 가 있다면 ❌
+```
+
+- `UMD`는 `export {}`가 있으면 모듈 파일로 인식하여 에러가 남. <mark>스크립트 파일</mark>일 떄 위와같이 불러올 수 있다.
+
+그래서 다시 `React`타입을 봐보면
+
+```ts
+// eslint-disable-next-line @definitelytyped/export-just-namespace
+export = React;
+export as namespace React;
+```
+
+- `export = React;`는 `CommonJS`용
+- `export as namespace React;`는 `UMD`용으로 생각하면 된다.
+
+`axios`를 살펴보면,
+
+test.ts
+
+```ts
+import axios from "axios";
+// export default axios;
+
+import { isCancel } from "axios";
+// export function isCancel(value: any): value is Cancel;
+
+export * from "axios";
+export * from "react-redux";
+// 여러 개의 모듈을 한 파일로 모으고 싶을 때 사용하는 방식🔥
+
+export * as namespace from "axios";
+// export default사용 하고 싶다면 -> namespace를 지정
+```
+
+- `export default` -> `* as namespace`
+
+test.copy.ts
+
+```ts
+import { namespace } from "./test";
+namespace.default.get();
+namespace.isCancel();
+// default 사용가능, commonjs 모듈 불가능
+```
+
+::declare global, declare module
+
+`declare global`는 모듈이어야 해서 `top level import/export` 필요
+
+test.ts
+
+```ts
+declare global {
+  interface Error {
+    baobab: string;
+  }
+}
+export {}; // export나 import 필요
+```
+
+test.copy.ts
+
+```ts
+new Error().baobab;
+```
+
+- 전역적으로 뭔가를 추가,확장 할 때
+- 모듈파일, `export {};`
+
+스크립트 파일은 처음부터 전역이므로 `declare global` 없이 그냥 쓰면 됨
+
+```ts
+interface Error {}
+```
+
+`declare module`을 스크립트 파일에 하면 기존 타입 선언 대체, 모듈 파일에 하면 기존 타입 선언과 병합됨.🔥🔥
+
+```ts
+declare module "express-session" {
+  interface SessionData {
+    sessionData: string; // 🟠
+  }
+}
+export {}; // 있냐 없냐가 모듈/스크립트 파일을 결정하므로 중요
+// export {};가 없다면 스크립트 파일로 인식되어 기존의 타입 정의를 덮어씌운다.
+
+declare namespace session {
+  ...
+  interface SessionData {
+    cookie: Cookie; // 🟠
+  }
+  ...
+}
+// req.session.sessionData가 인식
+```
+
+- 보통 사용할 떄는 스크립트 파일에서 `declare module 'test'`형태로 사용
+  - 모듈: 기존 타입과 병합, `export {};`
+    - `SessionData`같은거 확장 할 때 사용
+  - 스크립트: 새로운 타인 선언, 전역

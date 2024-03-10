@@ -81,3 +81,29 @@ function createSquare(config: SquareConfig) {
 const obj2 = { color: "red", width: 100, height: 12 };
 
 let mySquare = createSquare(obj2);
+// import React = require('react');
+
+// import React from 'react';
+
+// React.Children;
+// export as namespace React;
+
+import axios from "axios";
+// export default axios;
+
+import { isCancel } from "axios";
+// export function isCancel(value: any): value is Cancel;
+
+export * from "axios";
+export * from "react-redux";
+// 여러 개의 모듈을 한 파일로 모으고 싶을 때 사용하는 방식
+
+export * as namespace from "axios";
+// export default사용 하고 싶다면
+
+declare global {
+  interface Error {
+    baobab: string;
+  }
+}
+export {}; // export나 import 필요
